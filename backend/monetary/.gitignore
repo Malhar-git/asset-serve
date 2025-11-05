@@ -31,3 +31,40 @@ build/
 
 ### VS Code ###
 .vscode/
+
+#  General
+# =============== #
+.DS_Store
+
+# =============== #
+#  Database
+# =============== #
+# Exclude the live PostgreSQL data directory
+postgres-data/
+
+# =============== #
+#  Spring Boot (Backend)
+# =============== #
+# Compiled output
+backend/monetary/target/
+# Log files
+*.log
+
+# =============== #
+#  Node.js (Frontend)
+# =============== #
+# Compiled output
+frontend/build/
+frontend/.next/
+
+# Dependencies
+frontend/node_modules/
+
+# Debug logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Env files with secrets
+.env
+.env.local
