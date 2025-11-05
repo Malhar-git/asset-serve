@@ -15,15 +15,15 @@ public class AuthService {
         this.userRepository = userRepository;
     }
 
-    public User registerUser(String email, String password, String firstName) {
+    public User registerUser(String firstName, String email, String password) {
         if (userRepository.existsByEmail(email)){
             throw new RuntimeException("Email already exists");
         }
 
         User newUser = User.builder()
+                .firstName(firstName)
                 .email(email)
                 .password(password) // TODO: Add password hashing
-                .firstName(firstName)
                 .build();
 
         return userRepository.save(newUser);
