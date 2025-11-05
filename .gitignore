@@ -1,0 +1,43 @@
+# =============== #
+#  Database
+# =============== #
+# Exclude the live PostgreSQL data directory
+postgres-data/
+
+# =============== #
+#  Spring Boot (Backend)
+# =============== #
+# Compiled Java output
+backend/monetary/target/
+
+# Log files
+*.log
+
+# =============== #
+#  Node.js (Frontend)
+# =============== #
+# Compiled output
+frontend/build/
+frontend/.next/
+
+# Dependencies (this folder is huge!)
+frontend/node_modules/
+
+# Debug logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Env files with secrets
+.env
+.env.local
+
+# =============== #
+#  IDE Files
+# =============== #
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code (in case you use it)
+.vscode/
