@@ -1,9 +1,11 @@
 package com.assetserve.monetary.controller;
 
 import com.assetserve.monetary.dto.LoginRequest;
+import com.assetserve.monetary.dto.LoginResponse;
 import com.assetserve.monetary.dto.RegisterRequest;
 import com.assetserve.monetary.model.User;
 import com.assetserve.monetary.service.AuthService;
+import com.assetserve.monetary.service.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,10 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtService jwtService;
 
     @Autowired
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, JwtService jwtService) {
+
         this.authService = authService;
+        this.jwtService = jwtService;
+
     }
 
     // This creates our first endpoint: POST /api/auth/register
@@ -44,13 +50,15 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> loginUser( @Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> loginUser( @Valid @RequestBody LoginRequest request) {
         try{
             User user = authService.loginUser(
                     request.getEmail(),
                     request.getPassword()
             );
-            return ResponseEntity.ok(user.getEmail() + " logged in successfully");
+
+            String token = jwtService.generateToken(user);
+            return ResponseEntity.ok(new LoginResponse(token));
         } catch (RuntimeException e) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
