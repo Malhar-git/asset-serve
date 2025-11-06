@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -35,5 +36,17 @@ public class AuthService {
                 .build();
 
         return userRepository.save(newUser);
+    }
+
+    public User loginUser(String email, String password) {
+        //Find user by their email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Inavalid email or password"));
+
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Inavalid password");//    (Security Best Practice: Don't tell the attacker *which* part was wrong)
+        }
+        return user;
     }
 }

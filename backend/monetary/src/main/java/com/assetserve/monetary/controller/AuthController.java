@@ -1,8 +1,12 @@
 package com.assetserve.monetary.controller;
 
+import com.assetserve.monetary.dto.LoginRequest;
 import com.assetserve.monetary.dto.RegisterRequest;
+import com.assetserve.monetary.model.User;
 import com.assetserve.monetary.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +40,21 @@ public class AuthController {
         }catch(RuntimeException e){
             // If the user already exists (from our AuthService logic)
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<String> loginUser( @Valid @RequestBody LoginRequest request) {
+        try{
+            User user = authService.loginUser(
+                    request.getEmail(),
+                    request.getPassword()
+            );
+            return ResponseEntity.ok(user.getEmail() + " logged in successfully");
+        } catch (RuntimeException e) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(e.getMessage());
         }
     }
 
