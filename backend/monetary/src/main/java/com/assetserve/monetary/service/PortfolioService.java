@@ -8,7 +8,7 @@ import com.assetserve.monetary.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-
+import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PortfolioService {
@@ -31,5 +31,12 @@ public class PortfolioService {
                 .build();
 
         return assetRepository.save(asset);
+    }
+
+    public List<Asset> getPortfolio(String userEmail){
+        User user = userRepository.findByEmail(userEmail).
+                orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        return assetRepository.findByUserId(user.getId());
     }
 }
