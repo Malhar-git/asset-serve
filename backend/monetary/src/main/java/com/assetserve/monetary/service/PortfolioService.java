@@ -8,6 +8,8 @@ import com.assetserve.monetary.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 @Service
 @RequiredArgsConstructor
@@ -38,5 +40,20 @@ public class PortfolioService {
                 orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return assetRepository.findByUserId(user.getId());
+    }
+
+    public void deleteAsset(Long assetId, String userEmail) throws AccessDeniedException {
+        User user = userRepository.findByEmail(userEmail).
+                orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(()-> new UsernameNotFoundException("Asset not found with id" + assetId));
+
+        //Check if the asset's user ID matches the logged-in user's ID if not throw an error.
+        if(!asset.getUser().getId().equals(user.getId())){
+            throw new AccessDeniedException("You do not have permission to delete this assets");
+        }
+
+        assetRepository.delete(asset);
     }
 }
