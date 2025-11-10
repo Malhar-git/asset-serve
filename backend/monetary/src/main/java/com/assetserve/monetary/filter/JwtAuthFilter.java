@@ -33,29 +33,35 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // --- THIS IS THE FIX ---
-        // We check for the *invalid* conditions and stop.
+        // If no Authorization header or doesn't start with "Bearer ", let Spring Security handle it
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // --- This code now ONLY runs if the header is valid ---
+        // Extract and validate JWT token
+        try {
+            final String jwt = authHeader.substring(7);
+            final String userEmail = jwtService.extractEmail(jwt);
 
-        final String jwt = authHeader.substring(7);
-        final String userEmail = jwtService.extractEmail(jwt);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
 
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            // If JWT parsing fails (invalid token, expired, etc.), clear security context
+            // and let Spring Security handle the unauthorized request
+            SecurityContextHolder.clearContext();
+            // Don't set authentication - let Spring Security reject the request
         }
+        
         filterChain.doFilter(request, response);
     }
 }

@@ -20,6 +20,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
+    private final Http401UnauthorizedEntryPoint unauthorizedEntryPoint;
 
     @Bean // Creates a "Bean" (a managed object) that defines our security rules
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -37,6 +38,7 @@ public class SecurityConfig {
                         //user MUST be authenticated.
                         .authenticated()
                 ).sessionManagement(session-> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedEntryPoint))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore((Filter) jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
