@@ -1,6 +1,7 @@
 package com.assetserve.monetary.controller;
 
 import com.assetserve.monetary.dto.AddAssetRequest;
+import com.assetserve.monetary.dto.PortfolioAssetResponse;
 import com.assetserve.monetary.model.Asset;
 import com.assetserve.monetary.service.PortfolioService;
 import jakarta.persistence.EntityNotFoundException;
@@ -44,15 +45,15 @@ public class PortfolioController {
     }
 
     @GetMapping
-    public ResponseEntity <List<Asset>> getPortfolio(Authentication authentication) {
-        //Get the user's email from their token
+    public ResponseEntity<List<PortfolioAssetResponse>> getPortfolio(Authentication authentication) {
+
         String userEmail = authentication.getName();
-        //Call our new service method
-        List<Asset> portfolio = portfolioService.getPortfolio(userEmail);
-        //Return the list with a 200 OK status
+
+        // This line is the same, but it now calls our NEW "smart" service method
+        List<PortfolioAssetResponse> portfolio = portfolioService.getPortfolio(userEmail);
+
         return ResponseEntity.ok(portfolio);
     }
-
     @DeleteMapping("/assets/{id}")
     public ResponseEntity<Void> deleteAsset(
             /*

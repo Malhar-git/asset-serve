@@ -1,6 +1,7 @@
 package com.assetserve.monetary.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -8,6 +9,12 @@ import java.math.BigDecimal;
 
 @Data
 public class AddAssetRequest {
+
+    @NotEmpty(message = "Exchange must not be empty")
+    private String exchange;
+    @NotEmpty(message = "Symbol Token must be not empty")
+    private String symbolToken;
+
     @NotNull(message = "Symbol must not be empty")
     private String assetSymbol;
 

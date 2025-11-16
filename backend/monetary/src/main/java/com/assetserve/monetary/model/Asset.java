@@ -22,6 +22,12 @@ public class Asset {
     private Long id;
 
     @Column(nullable = false)
+    private String exchange;
+
+    @Column(nullable = false)
+    private String symbolToken;
+
+    @Column(nullable = false)
     private String symbol; // e.g., "RELIANCE.NS", "GOLDM.MCX"
 
     @Column(nullable = false)
