@@ -3,6 +3,7 @@ package com.assetserve.monetary.controller;
 import com.assetserve.monetary.dto.AddAssetRequest;
 import com.assetserve.monetary.dto.PortfolioAssetResponse;
 import com.assetserve.monetary.model.Asset;
+import com.assetserve.monetary.model.PortfolioHistory;
 import com.assetserve.monetary.service.PortfolioService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
@@ -74,5 +75,13 @@ public class PortfolioController {
         }catch(AccessDeniedException e){
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+    }
+    @GetMapping("/history")
+    public ResponseEntity<List<PortfolioHistory>> getHistory(
+            @RequestParam(value = "range", defaultValue = "all") String range, Authentication authentication
+    ){
+        String userEmail = authentication.getName();
+        List<PortfolioHistory> history = portfolioService.getPortfolioHistory(userEmail, range);
+        return ResponseEntity.ok(history);
     }
 }

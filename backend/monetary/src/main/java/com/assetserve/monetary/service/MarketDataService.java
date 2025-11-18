@@ -2,6 +2,7 @@ package com.assetserve.monetary.service;
 
 import com.angelbroking.smartapi.SmartConnect;
 import com.angelbroking.smartapi.http.SessionExpiryHook;
+import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
 import com.angelbroking.smartapi.models.User;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import jakarta.annotation.PostConstruct;
@@ -88,5 +89,31 @@ public class MarketDataService {
             return 0.0;
         }
     }
+
+    public String searchInstruments(String query) {
+        if (smartConnect == null) {
+            System.err.println("Angel One service not initialized! Cannot search.");
+            return "[]"; // Return an empty JSON array
+        }
+
+        try {
+            // This is the payload from the Angel One docs
+            JSONObject payload = new JSONObject();
+            payload.put("exchange", "NSE"); // Let's default to searching NSE
+            payload.put("searchscrip", query); // The user's search term
+
+            // Call the API
+            String jsonResponse = smartConnect.getSearchScrip(payload);
+
+            return jsonResponse;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "[]"; // Return an empty JSON array on error
+        } catch (SmartAPIException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
 

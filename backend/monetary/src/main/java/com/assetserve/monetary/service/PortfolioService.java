@@ -3,8 +3,10 @@ package com.assetserve.monetary.service;
 import com.assetserve.monetary.dto.AddAssetRequest;
 import com.assetserve.monetary.dto.PortfolioAssetResponse;
 import com.assetserve.monetary.model.Asset;
+import com.assetserve.monetary.model.PortfolioHistory;
 import com.assetserve.monetary.model.User;
 import com.assetserve.monetary.repository.AssetRepository;
+import com.assetserve.monetary.repository.PortfolioHistoryRepository;
 import com.assetserve.monetary.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.nio.file.AccessDeniedException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,6 +25,7 @@ public class PortfolioService {
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
     private final MarketDataService marketDataService;
+    private final PortfolioHistoryRepository portfolioHistoryRepository;
 
     public Asset addAsset(AddAssetRequest request, String userEmail) {
         //1. Find the user who is making this request
@@ -88,5 +92,30 @@ public class PortfolioService {
         }
 
         assetRepository.delete(asset);
+    }
+
+    public List<PortfolioHistory> getPortfolioHistory(String userEmail, String range) {
+        User user = userRepository.findByEmail(userEmail).
+                orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        LocalDate startDate = LocalDate.now();
+        switch (range){
+            case "3m":
+                startDate = LocalDate.now().minusMonths(3);
+                break;
+            case "6m":
+                startDate = LocalDate.now().minusMonths(6);
+                break;
+            case "12m":
+                startDate = LocalDate.now().minusMonths(12);
+                break;
+            default:
+                startDate = LocalDate.now().minusYears(100);
+                break;
+        }
+        return portfolioHistoryRepository.findByUserIdAndSnapshotDataAfterOrderBySnapshotDataAsc(
+                user.getId(),
+                startDate
+        );
     }
 }
