@@ -4,11 +4,16 @@ import com.angelbroking.smartapi.SmartConnect;
 import com.angelbroking.smartapi.http.SessionExpiryHook;
 import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
 import com.angelbroking.smartapi.models.User;
+import com.assetserve.monetary.dto.ScripPriceData;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import jakarta.annotation.PostConstruct;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class MarketDataService {
@@ -112,6 +117,62 @@ public class MarketDataService {
             return "[]"; // Return an empty JSON array on error
         } catch (SmartAPIException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public List<ScripPriceData> getPriceData(String exchange, String symboltoken, String interval, String fromDate, String toDate) {
+        if (smartConnect == null) {
+            System.err.println("Angel One service not initialized! Cannot get price data");
+            return new ArrayList<>();
+        }
+        try{
+            JSONObject payload = new JSONObject();
+            payload.put("exchange", exchange);
+            payload.put("symboltoken", symboltoken);
+            payload.put("interval", interval);
+            payload.put("fromdate", fromDate );
+            payload.put("todate", toDate);
+
+            String response;
+            try {
+                response = smartConnect.candleData(payload);
+            } catch (Exception e) {
+                System.err.println("SmartAPI Exception during candleData call: " + e.getMessage());
+                return new ArrayList<>();
+            }
+
+            if(response == null || response.isEmpty()){
+                System.err.println("Angel one returned null / empty response for candle data");
+                return new ArrayList<>();
+            }
+            JSONObject jsonResponse = new JSONObject(response);
+            List<ScripPriceData> data = new ArrayList<>();
+
+            if(jsonResponse.has("data") && jsonResponse.getBoolean("status") && !jsonResponse.isNull("data")){
+                JSONArray dataArray = jsonResponse.getJSONArray("data");
+                for (int i = 0; i < dataArray.length(); i++) {
+                    JSONArray candle = dataArray.getJSONArray(i);
+
+                    ScripPriceData dto = ScripPriceData.builder()
+                            .timestamp(candle.getString(0))
+                            .open(candle.getDouble(1))
+                            .high(candle.getDouble(2))
+                            .low(candle.getDouble(3))
+                            .close(candle.getDouble(4))
+                            .volume(candle.getLong(5))
+                            .build();
+
+                    data.add(dto);
+                }
+            }else {
+                System.err.println("Angel one API returned error status or null data: " + jsonResponse.toString());
+
+            }
+            return data;
+        }catch (Exception e) {
+            System.err.println("Angel One service error: " );
+            e.printStackTrace();
+            return new ArrayList<>();
         }
     }
 
