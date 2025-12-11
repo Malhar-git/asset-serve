@@ -1,22 +1,63 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { useRef, useState } from "react"
+import { SetStateAction, useEffect, useRef, useState } from "react"
 import { Search } from "lucide-react"
 
 const searchInput = () => {
   const [isFocused, setIsFocused] = useState(false);
   const [searchValue, setSearchValue] = useState("");
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [showDropDown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const allScrips = [
+    "SBI"
+  ];
+
+  //Filter Scrips based on Input
+  const filteredScrips = searchValue ? allScrips.filter(
+    scrip => scrip.toLowerCase().includes(searchValue.toLowerCase())
+  ) : allScrips;
+
+  //Handle Close after clicking outside dropdown menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+        setIsFocused(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSearch = () => {
     if (searchValue.trim()) {
       console.log('Searching for:', searchValue);
+      setShowDropdown(false);
+      setIsFocused(false);
+      //handle search logic here
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
+    } else if (e.key == 'Escape') {
+      setShowDropdown(false);
+      setIsFocused(false);
+      inputRef.current?.blur();
     }
+  };
+
+  const handleInputClick = () => {
+    setIsFocused(true);
+    setShowDropdown(true);
+  };
+
+  const handleSuggestionClick = (scrip: SetStateAction<string>) => {
+    setSearchValue(scrip);
+    handleSearch();
   };
 
   return (
@@ -29,7 +70,11 @@ const searchInput = () => {
                 ref={inputRef}
                 type="text"
                 value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
+                onChange={(e) =>{
+                  setSearchValue(e.target.value);
+                  setShowDropdown(true);
+                }
+                }
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 onKeyDown={handleKeyDown}
