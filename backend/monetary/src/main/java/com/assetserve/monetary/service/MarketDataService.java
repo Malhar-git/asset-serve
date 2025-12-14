@@ -4,6 +4,7 @@ import com.angelbroking.smartapi.SmartConnect;
 import com.angelbroking.smartapi.http.SessionExpiryHook;
 import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
 import com.angelbroking.smartapi.models.User;
+import com.assetserve.monetary.dto.HoldingResponse;
 import com.assetserve.monetary.dto.ScripPriceData;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import jakarta.annotation.PostConstruct;
@@ -171,6 +172,48 @@ public class MarketDataService {
             return data;
         }catch (Exception e) {
             System.err.println("Angel One service error: " );
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    //GET Holdings(Portfolio)
+    public List<HoldingResponse> getHolding(){
+        if (smartConnect == null) {
+            System.err.println("Angel One service not initialized! Cannot get holding data");
+            return new ArrayList<>();
+        }
+
+        try{
+            JSONObject jsonResponse = smartConnect.getHolding();
+            List<HoldingResponse> userHoldings = new ArrayList<>();
+            if(jsonResponse != null && !jsonResponse.isNull("data") && jsonResponse.getBoolean("status")){
+
+                JSONObject dataObj = jsonResponse.getJSONObject("data");
+
+                if(dataObj.has("holdings") && !dataObj.isNull("holdings")){
+                    JSONArray holdingArray = dataObj.getJSONArray("holdings");
+
+                    for(int i = 0; i < holdingArray.length(); i++){
+                        JSONObject rawHolding = holdingArray.getJSONObject(i);
+
+                        HoldingResponse dto = HoldingResponse.builder().
+                                tradingSymbol(rawHolding.optString("tradingsymbol"))
+                                .symbolToken(rawHolding.optString("symboltoken"))
+                                .quantity(rawHolding.optInt("quantity"))
+                                .averagePrice(rawHolding.optDouble("averageprice", 0.0))
+                                .LTP(rawHolding.optDouble("ltp", 0.0))
+                                .PnL(rawHolding.optDouble("profitandloss", 0.0))
+                                .profitPercentage(rawHolding.optDouble("pnlpercentage", 0.0))
+                                .build();
+
+                        userHoldings.add(dto);
+                    }
+                }
+            }
+            return userHoldings;
+        }catch (Exception e) {
+            System.err.println("Error fetching holdings: " + e.getMessage());
             e.printStackTrace();
             return new ArrayList<>();
         }
