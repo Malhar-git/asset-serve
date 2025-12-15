@@ -1,23 +1,26 @@
 package com.assetserve.monetary.service;
 
-import com.angelbroking.smartapi.SmartConnect;
-import com.angelbroking.smartapi.http.SessionExpiryHook;
-import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
-import com.angelbroking.smartapi.models.User;
 import com.assetserve.monetary.dto.HoldingResponse;
 import com.assetserve.monetary.dto.ScripPriceData;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import jakarta.annotation.PostConstruct;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MarketDataService {
+    // Main HTTP API implementation fetch point
+    private static final String BASE_URL = "https://apiconnect.angelone.in";
+
     @Value("${angelone.api.key}")
     private String apiKey;
 
@@ -30,66 +33,123 @@ public class MarketDataService {
     @Value("${angelone.client.totp}")
     private String totpp;
 
-    private SmartConnect smartConnect;
+    private String jwtToken;
+    private String refreshToken;
+    private String feedToken;
+
+    private String clientLocalIP;
+    private String clientPublicIP;
+    private String macAddress;
+
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    public MarketDataService() {
+        this.restTemplate = new RestTemplate();
+        this.objectMapper = new ObjectMapper();
+    }
 
     @PostConstruct
     public void init() {
         try {
-            System.out.println("--- Attempting to log in to Angel One Smart API v2.2.6... ---");
+            System.out.println("--- Attempting to log in to Angel One Smart API via Direct HTTP... ---");
 
-            smartConnect = new SmartConnect();
-            smartConnect.setApiKey(apiKey);
+            // Auto-detect network details
+            this.clientLocalIP = getLocalIPAddress();
+            this.clientPublicIP = getPublicIPAddress();
+            this.macAddress = getMacAddress();
+            System.out.println("Detected Local IP: " + clientLocalIP);
+            System.out.println("Detected Public IP: " + clientPublicIP);
+            System.out.println("Detected MAC: " + macAddress);
 
-            smartConnect.setSessionExpiryHook(new SessionExpiryHook() {
-                @Override
-                public void sessionExpired() {
-                    System.out.println("Angel One session expired!");
-                }
-            });
-
+            // Generate TOTP code
             GoogleAuthenticator gAuth = new GoogleAuthenticator();
             int totpCode = gAuth.getTotpPassword(totpp);
-            String totp = String.format("%06d",totpCode);
+            String totp = String.format("%06d", totpCode);
 
-            // Make sure you are using the 3-argument version:
-            User user = smartConnect.generateSession(clientId, clientPassword, totp);
+            // Prepare login request
+            String url = BASE_URL + "/rest/auth/angelbroking/user/v1/loginByPassword";
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("clientcode", clientId);
+            requestBody.put("password", clientPassword);
+            requestBody.put("totp", totp);
 
-            // Check if the login failed *before* trying to use the user object
-            if (user == null || user.getAccessToken() == null) {
-                // This stops the app from crashing with a NullPointerException
+            HttpHeaders headers = createHeaders(false);
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
+
+            // Make login request
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+            JsonNode root = objectMapper.readTree(response.getBody());
+
+            // Check if the login failed
+            if (!root.has("status") || !root.get("status").asBoolean()) {
                 throw new RuntimeException("Failed to generate Angel One session. API returned null. Check credentials/TOTP.");
             }
 
-            // This code will only run if the login was successful
-            smartConnect.setAccessToken(user.getAccessToken());
-            smartConnect.setUserId(user.getUserId());
+            // Store tokens
+            JsonNode data = root.get("data");
+            this.jwtToken = data.get("jwtToken").asText();
+            this.refreshToken = data.get("refreshToken").asText();
+            this.feedToken = data.get("feedToken").asText();
 
-            System.out.println("Angel One Login Success! User: " + user.getUserName());
+            System.out.println("Angel One Login Success!");
 
         } catch (Exception e) {
             System.err.println("--- FAILED TO LOGIN TO ANGEL ONE ---");
-            // This will now catch the "Failed to generate... session" error too
             e.printStackTrace();
         }
     }
 
-    public double getLtp(String exchange, String tradingSymbol, String symbolToken){
-        if(smartConnect == null){
+    // Create HTTP headers for API requests
+    private HttpHeaders createHeaders(boolean requiresAuth) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Accept", "application/json");
+        headers.set("X-UserType", "USER");
+        headers.set("X-SourceID", "WEB");
+        headers.set("X-ClientLocalIP", clientLocalIP);
+        headers.set("X-ClientPublicIP", clientPublicIP);
+        headers.set("X-MACAddress", macAddress);
+        headers.set("X-PrivateKey", apiKey);
+
+        if (requiresAuth && jwtToken != null) {
+            headers.set("Authorization", "Bearer " + jwtToken);
+        }
+
+        return headers;
+    }
+
+    public double getLtp(String exchange, String tradingSymbol, String symbolToken) {
+        if (jwtToken == null) {
             System.out.println("AngelOne not initialized! Cannot fetch price");
             return 0.0;
         }
-        try{
-            JSONObject ltpData = smartConnect.getLTP(exchange, tradingSymbol, symbolToken);
+
+        try {
+            // Prepare LTP request
+            String url = BASE_URL + "/rest/secure/angelbroking/market/v1/quote/";
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("mode", "LTP");
+            requestBody.put("exchangeTokens", Map.of(exchange, List.of(symbolToken)));
+
+            HttpHeaders headers = createHeaders(true);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+            // Make API call
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+            JsonNode root = objectMapper.readTree(response.getBody());
 
             // Parse the JSON to get the price
-            if (ltpData.has("data") && ltpData.getJSONObject("data").has("ltp")) {
-                return ltpData.getJSONObject("data").getDouble("ltp");
-            } else if (ltpData.has("ltp")) {
-                return ltpData.getDouble("ltp");
-            } else {
-                System.err.println("Could not parse LTP from response: " + ltpData.toString());
-                return 0.0;
+            if (root.has("data") && root.get("data").has("fetched")) {
+                JsonNode fetched = root.get("data").get("fetched").get(0);
+                if (fetched.has("ltp")) {
+                    return fetched.get("ltp").asDouble();
+                }
             }
+
+            System.err.println("Could not parse LTP from response: " + root.toString());
+            return 0.0;
+
         } catch (Exception e) {
             e.printStackTrace();
             return 0.0;
@@ -97,127 +157,184 @@ public class MarketDataService {
     }
 
     public String searchInstruments(String query) {
-        if (smartConnect == null) {
+        if (jwtToken == null) {
             System.err.println("Angel One service not initialized! Cannot search.");
-            return "[]"; // Return an empty JSON array
+            return "[]";
         }
 
         try {
-            // This is the payload from the Angel One docs
-            JSONObject payload = new JSONObject();
-            payload.put("exchange", "NSE"); // Let's default to searching NSE
-            payload.put("searchscrip", query); // The user's search term
+            // Prepare search request
+            String url = BASE_URL + "/rest/secure/angelbroking/order/v1/searchScrip";
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("exchange", "NSE");
+            requestBody.put("searchscrip", query);
+
+            HttpHeaders headers = createHeaders(true);
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
             // Call the API
-            String jsonResponse = smartConnect.getSearchScrip(payload);
-
-            return jsonResponse;
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+            return response.getBody();
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "[]"; // Return an empty JSON array on error
-        } catch (SmartAPIException e) {
-            throw new RuntimeException(e);
+            return "[]";
         }
     }
 
     public List<ScripPriceData> getPriceData(String exchange, String symboltoken, String interval, String fromDate, String toDate) {
-        if (smartConnect == null) {
+        if (jwtToken == null) {
             System.err.println("Angel One service not initialized! Cannot get price data");
             return new ArrayList<>();
         }
-        try{
-            JSONObject payload = new JSONObject();
-            payload.put("exchange", exchange);
-            payload.put("symboltoken", symboltoken);
-            payload.put("interval", interval);
-            payload.put("fromdate", fromDate );
-            payload.put("todate", toDate);
 
-            String response;
-            try {
-                response = smartConnect.candleData(payload);
-            } catch (Exception e) {
-                System.err.println("SmartAPI Exception during candleData call: " + e.getMessage());
-                return new ArrayList<>();
-            }
+        try {
+            // Prepare candle data request
+            String url = BASE_URL + "/rest/secure/angelbroking/historical/v1/getCandleData";
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("exchange", exchange);
+            requestBody.put("symboltoken", symboltoken);
+            requestBody.put("interval", interval);
+            requestBody.put("fromdate", fromDate);
+            requestBody.put("todate", toDate);
 
-            if(response == null || response.isEmpty()){
+            HttpHeaders headers = createHeaders(true);
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
+
+            // Make API call
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
+            if (response.getBody() == null || response.getBody().isEmpty()) {
                 System.err.println("Angel one returned null / empty response for candle data");
                 return new ArrayList<>();
             }
-            JSONObject jsonResponse = new JSONObject(response);
+
+            // Parse JSON response
+            JsonNode root = objectMapper.readTree(response.getBody());
             List<ScripPriceData> data = new ArrayList<>();
 
-            if(jsonResponse.has("data") && jsonResponse.getBoolean("status") && !jsonResponse.isNull("data")){
-                JSONArray dataArray = jsonResponse.getJSONArray("data");
-                for (int i = 0; i < dataArray.length(); i++) {
-                    JSONArray candle = dataArray.getJSONArray(i);
+            if (root.has("data") && root.get("status").asBoolean() && !root.get("data").isNull()) {
+                JsonNode dataArray = root.get("data");
 
+                for (JsonNode candle : dataArray) {
                     ScripPriceData dto = ScripPriceData.builder()
-                            .timestamp(candle.getString(0))
-                            .open(candle.getDouble(1))
-                            .high(candle.getDouble(2))
-                            .low(candle.getDouble(3))
-                            .close(candle.getDouble(4))
-                            .volume(candle.getLong(5))
+                            .timestamp(candle.get(0).asText())
+                            .open(candle.get(1).asDouble())
+                            .high(candle.get(2).asDouble())
+                            .low(candle.get(3).asDouble())
+                            .close(candle.get(4).asDouble())
+                            .volume(candle.get(5).asLong())
                             .build();
-
                     data.add(dto);
                 }
-            }else {
-                System.err.println("Angel one API returned error status or null data: " + jsonResponse.toString());
-
+            } else {
+                System.err.println("Angel one API returned error status or null data: " + root.toString());
             }
+
             return data;
-        }catch (Exception e) {
-            System.err.println("Angel One service error: " );
+
+        } catch (Exception e) {
+            System.err.println("Angel One service error: ");
             e.printStackTrace();
             return new ArrayList<>();
         }
     }
 
-    //GET Holdings(Portfolio)
-    public List<HoldingResponse> getHolding(){
-        if (smartConnect == null) {
+    // GET Holdings(Portfolio)
+    public List<HoldingResponse> getHolding() {
+        if (jwtToken == null) {
             System.err.println("Angel One service not initialized! Cannot get holding data");
             return new ArrayList<>();
         }
 
-        try{
-            JSONObject jsonResponse = smartConnect.getHolding();
+        try {
+            // Prepare holdings request
+            String url = BASE_URL + "/rest/secure/angelbroking/portfolio/v1/getHolding";
+            HttpHeaders headers = createHeaders(true);
+            HttpEntity<String> request = new HttpEntity<>(headers);
+
+            // Make API call
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
+            JsonNode root = objectMapper.readTree(response.getBody());
             List<HoldingResponse> userHoldings = new ArrayList<>();
-            if(jsonResponse != null && !jsonResponse.isNull("data") && jsonResponse.getBoolean("status")){
 
-                JSONObject dataObj = jsonResponse.getJSONObject("data");
+            if (root.has("data") && !root.get("data").isNull() && root.get("status").asBoolean()) {
+                JsonNode dataObj = root.get("data");
 
-                if(dataObj.has("holdings") && !dataObj.isNull("holdings")){
-                    JSONArray holdingArray = dataObj.getJSONArray("holdings");
+                if (dataObj.has("holdings") && !dataObj.get("holdings").isNull()) {
+                    JsonNode holdingArray = dataObj.get("holdings");
 
-                    for(int i = 0; i < holdingArray.length(); i++){
-                        JSONObject rawHolding = holdingArray.getJSONObject(i);
-
-                        HoldingResponse dto = HoldingResponse.builder().
-                                tradingSymbol(rawHolding.optString("tradingsymbol"))
-                                .symbolToken(rawHolding.optString("symboltoken"))
-                                .quantity(rawHolding.optInt("quantity"))
-                                .averagePrice(rawHolding.optDouble("averageprice", 0.0))
-                                .LTP(rawHolding.optDouble("ltp", 0.0))
-                                .PnL(rawHolding.optDouble("profitandloss", 0.0))
-                                .profitPercentage(rawHolding.optDouble("pnlpercentage", 0.0))
+                    for (JsonNode rawHolding : holdingArray) {
+                        HoldingResponse dto = HoldingResponse.builder()
+                                .tradingSymbol(rawHolding.path("tradingsymbol").asText())
+                                .symbolToken(rawHolding.path("symboltoken").asText())
+                                .quantity(rawHolding.path("quantity").asInt())
+                                .averagePrice(rawHolding.path("averageprice").asDouble(0.0))
+                                .LTP(rawHolding.path("ltp").asDouble(0.0))
+                                .PnL(rawHolding.path("profitandloss").asDouble(0.0))
+                                .profitPercentage(rawHolding.path("pnlpercentage").asDouble(0.0))
                                 .build();
 
                         userHoldings.add(dto);
                     }
                 }
             }
+
             return userHoldings;
-        }catch (Exception e) {
+
+        } catch (Exception e) {
             System.err.println("Error fetching holdings: " + e.getMessage());
             e.printStackTrace();
             return new ArrayList<>();
         }
     }
 
-}
+    // Auto-detect local IP address
+    private String getLocalIPAddress() {
+        try {
+            return java.net.InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            System.err.println("Could not detect local IP, using default");
+            return "192.168.1.1";
+        }
+    }
 
+    // Auto-detect public IP address
+    private String getPublicIPAddress() {
+        try {
+            java.net.URL url = new java.net.URL("https://api.ipify.org");
+            java.io.BufferedReader in = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(url.openStream())
+            );
+            String ip = in.readLine();
+            in.close();
+            return ip;
+        } catch (Exception e) {
+            System.err.println("Could not detect public IP, using default");
+            return "106.51.68.11";
+        }
+    }
+
+    // Auto-detect MAC address
+    private String getMacAddress() {
+        try {
+            java.net.InetAddress localHost = java.net.InetAddress.getLocalHost();
+            java.net.NetworkInterface ni = java.net.NetworkInterface.getByInetAddress(localHost);
+
+            if (ni == null || ni.getHardwareAddress() == null) {
+                throw new Exception("Hardware address not found");
+            }
+
+            byte[] hardwareAddress = ni.getHardwareAddress();
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < hardwareAddress.length; i++) {
+                sb.append(String.format("%02X%s", hardwareAddress[i],
+                        (i < hardwareAddress.length - 1) ? ":" : ""));
+            }
+            return sb.toString().toLowerCase();
+        } catch (Exception e) {
+            System.err.println("Could not detect MAC address, using default");
+            return "fe:80:ab:cd:ef:gh";
+        }
+    }
+}

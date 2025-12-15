@@ -5,7 +5,7 @@ export default function PortfolioTables() {
 
     <div className="relative overflow-x-auto bg-neutral-primary-soft shadow-xs rounded-base border border-default">
       <table className="w-full text-sm text-left rtl:text-right text-body border-collapse">
-        <thead className="text-sm text-body bg-neutral-secondary-soft border-b rounded-base border-default">
+        <thead className="text-sm text-body bg-neutral-secondary-soft border-b border-default rounded-base">
           <tr>
             <th scope="col" className="px-6 py-3 font-medium border-0">
               Name
@@ -35,7 +35,7 @@ export default function PortfolioTables() {
           </tr>
         </thead>
         <tbody>
-          <tr className="bg-neutral-primary border-b border-default">
+          <tr className="bg-white border-b border-none">
             <th scope="row" className="px-6 py-4 font-medium text-heading whitespace-nowrap border-0">
               "Apple MacBook Pro "
             </th>
@@ -52,7 +52,7 @@ export default function PortfolioTables() {
               231
             </td>
           </tr>
-          <tr className="bg-neutral-primary border-b border-default">
+          <tr className="bg-neutral-100 border-none">
             <th scope="row" className="px-6 py-4 font-medium text-heading whitespace-nowrap border-0">
               Microsoft Surface Pro
             </th>
@@ -69,8 +69,8 @@ export default function PortfolioTables() {
               423
             </td>
           </tr>
-          <tr className="bg-neutral-primary">
-            <th scope="row" className="px-6 py-4 font-medium text-heading whitespace-nowrap border-0">
+          <tr className="bg-white border-none">
+            <th scope="row" className="px-6 py-4 font-medium text-heading whitespace-nowrap border-none">
               Magic Mouse 2
             </th>
             <td className="px-6 py-4 border-0">
