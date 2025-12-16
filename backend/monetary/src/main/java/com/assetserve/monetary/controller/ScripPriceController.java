@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/history")
+@RequestMapping("api/v1/priceHistory")
 @RequiredArgsConstructor
 public class ScripPriceController {
     private final MarketDataService marketDataService;

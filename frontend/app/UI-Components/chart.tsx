@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { AreaSeries, createChart, ColorType } from "lightweight-charts";
+import { processChartData } from "../lib/chartUtils";
+import axios from 'axios';
 
 // Props interface defining the chart configuration options
 interface ChartProps {
@@ -81,20 +84,55 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
 };
 
 // Sample data for demonstration purposes
-const initialData = [
-  { time: "2018-12-22", value: 32.51 },
-  { time: "2018-12-23", value: 31.11 },
-  { time: "2018-12-24", value: 27.02 },
-  { time: "2018-12-25", value: 27.32 },
-  { time: "2018-12-26", value: 25.17 },
-  { time: "2018-12-27", value: 28.89 },
-  { time: "2018-12-28", value: 25.46 },
-  { time: "2018-12-29", value: 23.92 },
-  { time: "2018-12-30", value: 22.68 },
-  { time: "2018-12-31", value: 22.67 },
-];
 
 // Default export with sample data for quick testing
 export default function Chart() {
-  return <ChartComponent data={initialData} />;
+
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        // Enter your JWT token here
+        const JWT_TOKEN = "eyJhbGciOiJIUzUxMiJ9.eyJmaXJzdE5hbWUiOiJTYW1lZXIiLCJzdWIiOiJzYW1lZXJAdGVzdC5jb20iLCJpYXQiOjE3NjU4ODE5OTksImV4cCI6MTc2NTk2ODM5OX0.gQrrNOkAizF8SxrwiB8OfLzBykceOKffeJPkUiy6wdrITZbdWkpVLO5kQbOlbKaG7qLvgd9S6i5NZfrobqPgYA";
+
+        const response = await axios.get("http://localhost:8080/api/v1/priceHistory", {
+          params: {
+            exchange: "NSE",
+            symboltoken: "3045",
+            interval: "ONE_HOUR",
+            fromDate: "2023-10-01 09:15",
+            toDate: "2023-10-10 15:30",
+          },
+          headers: {
+            Authorization: `Bearer ${JWT_TOKEN}`,
+          },
+        });
+        const formattedData = processChartData(response.data);
+        setChartData(formattedData);
+      } catch (error) {
+        console.error("Failed to load chart", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
+  if (loading) return <div>Loading Chart..</div>
+
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-xl font-bold mb-4">SBI Performance</h2>
+
+      {/* 3. Render the Chart with transformed data */}
+      {chartData.length > 0 ? (
+        <ChartComponent data={chartData} />
+      ) : (
+        <p>No data available</p>
+      )}
+    </div>
+  );
 }
