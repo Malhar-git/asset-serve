@@ -2,9 +2,45 @@
 
 import { useState } from "react";
 import { Button } from "../UI-Components/button";
+import axios from "axios";
+import {useRouter} from "next/navigation";
 
 export default function LoginPage() {
-  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);//State for maintaining dropdown state in hero card what'new
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const router = useRouter();
+
+  //Handle Input Changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.id]: e.target.value });
+    setError("");
+  }
+
+  //Handle Form Submission
+  const handleLogin = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.post("http://localhost:8080/api/auth/login", {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      //Save Token and Redirect
+      const { token } = response.data;
+      localStorage.setItem("token", token);// Save JWT Token TO Browser Storage
+      router.push("/dashboard");//Redirect to dashboard
+    } catch (err: unknown) {
+      console.error("Login Failed", err);
+      setError("Invalid Credentials, Pls try again");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="login__page grid grid-cols-1 md:grid-cols-2 h-screen">
@@ -19,6 +55,13 @@ export default function LoginPage() {
             <p className="mt-2 text-base text-gray-500">Let&apos;s sign you in securely</p>
           </div>
 
+          {/* Error Message Display */}
+          {error && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md border border-red-200 text-center">
+              {error}
+            </div>
+          )}
+
           <div className="login__form--inputs space-y-4">
 
             {/* Email Input Group */}
@@ -26,6 +69,9 @@ export default function LoginPage() {
               <input
                 type="text"
                 id="email"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={loading}
                 placeholder="Enter Your Email Address"
                 className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 placeholder-transparent"
               />
@@ -45,6 +91,9 @@ export default function LoginPage() {
                 type="password"
                 id="password"
                 placeholder="Enter Your Password"
+                onChange={handleChange}
+                disabled={loading}
+                value={formData.password}
                 className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 placeholder-transparent"
               />
               <label
@@ -61,8 +110,9 @@ export default function LoginPage() {
           {/* Buttons Container */}
           <div className="login__form--actions flex flex-col space-y-4">
             {/* Primary Button */}
-            <Button variant="minimal" className="w-full py-3 justify-center items-center">
+            <Button onClick={handleLogin} variant="minimal" className="w-full py-3 justify-center items-center">
               Log in with Email
+              {loading ? "Signing in..." : "Login with Mail"}
             </Button>
 
             {/* Google Button */}
