@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
+/* 1. DEFINE THE THEME VARIABLES */
 :root {
-  --background: #f8f9fa;
-  --foreground: #171717;
+  /* --- Typography --- */
+  /* Inter from Google Fonts */
+  --font-inter: "Inter", sans-serif;
+
+  /* --- Layout Colors --- */
+  /* Main Page Background (Light Slate for contrast against white cards) */
+  --background: #f8fafc; /* Slate-50 */
+  /* The Main Text Color */
+  --foreground: #0f172a; /* Slate-900 */
+
+  /* --- Component Colors --- */
+  /* Cards (The white containers) */
   --card: #ffffff;
-  --chart-card: #778899;
+  --card-foreground: #0f172a;
+
+  /* --- Sidebar & Header (The "Dark Frame") --- */
+  --sidebar-bg: #0f172a; /* Slate-900 (Your choice) */
+  --sidebar-fg: #cbd5e1; /* Slate-300 (Text) */
+  --sidebar-border: #1e293b; /* Slate-800 */
+
+  /* --- Action Colors --- */
+  /* Primary Button (Indigo) */
+  --primary: #4f46e5; /* Indigo-600 */
+  --primary-fg: #ffffff;
+  --primary-hover: #4338ca; /* Indigo-700 */
+
+  /* Secondary/Accents */
+  /* Your "Light Slate Gray" for muted text/icons */
+  --muted: #778899;
+  --muted-light: #f1f5f9; /* Slate-100 */
+
+  /* Semantic Status Colors (Fintech Standard) */
+  --success: #10b981; /* Emerald-500 */
+  --danger: #ef4444; /* Red-500 */
 }
 
+/* 2. CONFIGURE TAILWIND THEME */
 @theme inline {
+  /* Map CSS variables to Tailwind utilities */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-primary: var(--font-primary);
+
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-card: var(--card);
+  --color-card-fg: var(--card-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-hover: var(--primary-hover);
+
+  --color-muted: var(--muted);
+
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 3. BASE STYLES & FONT FEATURES */
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter);
+    /* Vital for Fintech: Tabular numbers & Modern 'a' */
+    font-feature-settings: "cv11", "tnum";
+    -webkit-font-smoothing: antialiased;
   }
-}
-
-body {
-  background: var(--color-white);
-  font-family: var(--font-primary);
 }
