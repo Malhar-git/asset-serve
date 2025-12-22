@@ -1,112 +1,159 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import { AreaSeries, createChart, ColorType } from "lightweight-charts";
+import { LineSeries, createChart, ColorType } from "lightweight-charts";
 import { processChartData } from "../lib/chartUtils";
-import axios from 'axios';
+import api from "../lib/axios-interceptor";
 
-// Props interface defining the chart configuration options
 interface ChartProps {
-  data: { time: string; value: number }[];
+  data: { time: number; value: number }[];
   colors?: {
     backgroundColor?: string;
-    line?: string;
+    lineColor?: string;
     textColor?: string;
-    areaTopColor?: string;
-    areaBottomColor?: string;
   };
 }
 
-// ChartComponent renders an interactive area chart using lightweight-charts library
 export const ChartComponent: React.FC<ChartProps> = (props) => {
-  // Destructure props with default color values for customization
   const {
     data,
     colors: {
-      backgroundColor = "white",
-      line = "blue",
-      textColor = "black",
-      areaTopColor = "blue",
-      areaBottomColor = "blue",
+      backgroundColor = "#ffffff",
+      lineColor = "#2563eb",
+      textColor = "#64748b",
     } = {},
   } = props;
 
-  // Reference to the container div element for chart rendering
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // Effect hook to initialize chart and handle cleanup
   useEffect(() => {
-    // Guard clause to ensure container ref is available
-    if (!chartContainerRef.current) return;
+    if (!chartContainerRef.current || data.length === 0) return;
 
-    // Handler to resize chart when window dimensions change
     const handleResize = () => {
       if (chartContainerRef.current) {
         chart.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
     };
 
-    // Create the chart instance with layout and dimension settings
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: backgroundColor },
-        textColor,
+        textColor: textColor,
+        fontSize: 11,
       },
       width: chartContainerRef.current.clientWidth,
-      height: 300,
+      height: 220,
+      grid: {
+        vertLines: { color: "#f1f5f9" },
+        horzLines: { color: "#f1f5f9" },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: {
+          color: '#cbd5e1',
+          width: 1,
+          style: 2,
+          labelBackgroundColor: '#2563eb',
+        },
+        horzLine: {
+          color: '#cbd5e1',
+          width: 1,
+          style: 2,
+          labelBackgroundColor: '#2563eb',
+        },
+      },
+      timeScale: {
+        borderColor: "#e2e8f0",
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 5,
+        barSpacing: 10,
+        minBarSpacing: 5,
+        fixLeftEdge: false,
+        fixRightEdge: false,
+      },
+      rightPriceScale: {
+        borderColor: "#e2e8f0",
+        scaleMargins: {
+          top: 0.2,
+          bottom: 0.15,
+        },
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
     });
 
-    // Automatically fit all data points within the visible time range
+    const lineSeries = chart.addSeries(LineSeries, {
+      color: lineColor,
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 5,
+      crosshairMarkerBorderColor: lineColor,
+      crosshairMarkerBackgroundColor: '#ffffff',
+      lastValueVisible: true,
+      priceLineVisible: true,
+    });
+
+    const formattedData = data.map(item => ({
+      time: Math.floor(item.time) as any,
+      value: item.value,
+    }));
+
+    lineSeries.setData(formattedData);
     chart.timeScale().fitContent();
 
-    // Add area series with specified color configuration
-    const newSeries = chart.addSeries(AreaSeries, {
-      lineColor: line,
-      topColor: areaTopColor,
-      bottomColor: areaBottomColor,
-    });
-
-    // Populate the series with provided data points
-    newSeries.setData(data);
-
-    // Subscribe to window resize events for responsive behavior
     window.addEventListener("resize", handleResize);
 
-    // Cleanup function to remove event listener and dispose chart
     return () => {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [data, backgroundColor, line, textColor, areaTopColor, areaBottomColor]);
+  }, [data, backgroundColor, lineColor, textColor]);
 
-  // Render the chart container div
-  return <div ref={chartContainerRef} />;
+  return <div ref={chartContainerRef} className="w-full" />;
 };
 
-// Sample data for demonstration purposes
-
-// Default export with sample data for quick testing
 export default function Chart() {
-
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [interval, setInterval] = useState<"ONE_HOUR" | "ONE_DAY" | "ONE_WEEK">("ONE_HOUR");
+  const [period, setPeriod] = useState<"1Y" | "3Y">("1Y");
+
+  // Calculate date range based on selected period
+  const getDateRange = () => {
+    const now = new Date();
+    const toDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} 15:30`;
+
+    const fromDate = new Date(now);
+    if (period === "1Y") {
+      fromDate.setFullYear(fromDate.getFullYear() - 1);
+    } else {
+      fromDate.setFullYear(fromDate.getFullYear() - 3);
+    }
+    const fromDateStr = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-${String(fromDate.getDate()).padStart(2, "0")} 09:15`;
+
+    return { fromDate: fromDateStr, toDate };
+  };
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        // Enter your JWT token here
-        const JWT_TOKEN = "eyJhbGciOiJIUzUxMiJ9.eyJmaXJzdE5hbWUiOiJTYW1lZXIiLCJzdWIiOiJzYW1lZXJAdGVzdC5jb20iLCJpYXQiOjE3NjU4ODE5OTksImV4cCI6MTc2NTk2ODM5OX0.gQrrNOkAizF8SxrwiB8OfLzBykceOKffeJPkUiy6wdrITZbdWkpVLO5kQbOlbKaG7qLvgd9S6i5NZfrobqPgYA";
-
-        const response = await axios.get("http://localhost:8080/api/v1/priceHistory", {
+        setLoading(true);
+        const { fromDate, toDate } = getDateRange();
+        const response = await api.get("/priceHistory", {
           params: {
             exchange: "NSE",
             symboltoken: "3045",
-            interval: "ONE_HOUR",
-            fromDate: "2023-10-01 09:15",
-            toDate: "2023-10-10 15:30",
-          },
-          headers: {
-            Authorization: `Bearer ${JWT_TOKEN}`,
+            interval: interval,
+            fromDate: fromDate,
+            toDate: toDate,
           },
         });
         const formattedData = processChartData(response.data);
@@ -119,20 +166,81 @@ export default function Chart() {
     };
 
     fetchHistory();
-  }, []);
+  }, [interval, period]);
 
-  if (loading) return <div>Loading Chart..</div>
+  const intervalLabels = {
+    ONE_HOUR: "1H",
+    ONE_DAY: "1D",
+    ONE_WEEK: "1W",
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">SBI Performance</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">{intervalLabels[interval]} Chart</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-56">
+          <div className="text-sm text-gray-400">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4">SBI Performance</h2>
+    <div className="bg-white rounded-t-lg">
+      {/* Header with interval and period selectors */}
+      <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-900">SBI Performance</h3>
 
-      {/* 3. Render the Chart with transformed data */}
-      {chartData.length > 0 ? (
-        <ChartComponent data={chartData} />
-      ) : (
-        <p>No data available</p>
-      )}
+        <div className="flex items-center gap-3">
+          {/* Interval selector */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+            {(["ONE_HOUR", "ONE_DAY", "ONE_WEEK"] as const).map((int) => (
+              <button
+                key={int}
+                onClick={() => setInterval(int)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${interval === int
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                  }`}
+              >
+                {intervalLabels[int]}
+              </button>
+            ))}
+          </div>
+
+          {/* Period selector */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+            {(["1Y", "3Y"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${period === p
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                  }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Chart container */}
+      <div className="p-2">
+        {chartData.length > 0 ? (
+          <ChartComponent data={chartData} />
+        ) : (
+          <div className="flex items-center justify-center h-56">
+            <p className="text-sm text-gray-400">No data available</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
