@@ -19,11 +19,7 @@ public class HoldingController {
     private final MarketDataService marketDataService;
 
     @GetMapping("/portfolio")
-    public ResponseEntity<String> delete() {
-        return ResponseEntity.ok("");
-    }
     public ResponseEntity<List<HoldingResponse>> getBrokerHoldings(){
-
         List<HoldingResponse> holdings = marketDataService.getHolding();
         return ResponseEntity.ok(holdings);
     }

@@ -269,21 +269,31 @@ public class MarketDataService {
 
         try {
             // Prepare holdings request (GET request with auth headers)
-            String url = BASE_URL + "/rest/secure/angelbroking/portfolio/v1/getHolding";
+            String url = BASE_URL + "/rest/secure/angelbroking/portfolio/v1/getAllHolding";
             HttpHeaders headers = createHeaders(true);
             HttpEntity<String> request = new HttpEntity<>(headers);
 
             // Make API call to fetch holdings
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
+            
+            // Log the full response for debugging
+            System.out.println("=== AngelOne Holdings API Response ===");
+            System.out.println("Status Code: " + response.getStatusCode());
+            System.out.println("Response Body: " + response.getBody());
+            System.out.println("=====================================");
+            
             JsonNode root = objectMapper.readTree(response.getBody());
             List<HoldingResponse> userHoldings = new ArrayList<>();
 
             // Parse holdings data if response is successful
             if (root.has("data") && !root.get("data").isNull() && root.get("status").asBoolean()) {
                 JsonNode dataObj = root.get("data");
+                
+                System.out.println("Data object structure: " + dataObj.toString());
 
                 if (dataObj.has("holdings") && !dataObj.get("holdings").isNull()) {
                     JsonNode holdingArray = dataObj.get("holdings");
+                    System.out.println("Holdings array found with " + holdingArray.size() + " items");
 
                     // Map each holding to HoldingResponse DTO
                     for (JsonNode rawHolding : holdingArray) {
@@ -299,7 +309,14 @@ public class MarketDataService {
 
                         userHoldings.add(dto);
                     }
+                } else {
+                    System.err.println("No 'holdings' field found in data object!");
+                    System.err.println("Available fields in data: " + dataObj.fieldNames());
                 }
+            } else {
+                System.err.println("API returned error status or null data");
+                System.err.println("Status: " + (root.has("status") ? root.get("status").asBoolean() : "missing"));
+                System.err.println("Message: " + root.path("message").asText("no message"));
             }
 
             return userHoldings;
@@ -326,11 +343,6 @@ public class MarketDataService {
             Map<String, String> indexTokens = new LinkedHashMap<>();
             indexTokens.put("NIFTY 50", "99926000");
             indexTokens.put("NIFTY BANK", "99926009");
-            indexTokens.put("SENSEX", "99919000");
-            indexTokens.put("NIFTY FIN SERVICE", "99926037");
-            indexTokens.put("NIFTY IT", "99926018");
-            indexTokens.put("NIFTY PHARMA", "99926024");
-            indexTokens.put("NIFTY AUTO", "99926013");
 
             // Prepare request body - fetch all indices in one API call
             Map<String, Object> requestBody = new HashMap<>();
@@ -431,11 +443,6 @@ public class MarketDataService {
             Map<String, String> indexTokens = new LinkedHashMap<>();
             indexTokens.put("NIFTY 50", "99926000");
             indexTokens.put("NIFTY BANK", "99926009");
-            indexTokens.put("SENSEX", "99919000");
-            indexTokens.put("NIFTY FIN SERVICE", "99926037");
-            indexTokens.put("NIFTY IT", "99926018");
-            indexTokens.put("NIFTY PHARMA", "99926024");
-            indexTokens.put("NIFTY AUTO", "99926013");
 
             // Prepare request with FULL mode
             Map<String, Object> requestBody = new HashMap<>();
