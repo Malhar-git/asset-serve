@@ -1,6 +1,7 @@
 package com.assetserve.monetary.service;
 
 import com.assetserve.monetary.dto.HoldingResponse;
+import com.assetserve.monetary.dto.OIResponse;
 import com.assetserve.monetary.dto.ScripPriceData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -275,20 +276,20 @@ public class MarketDataService {
 
             // Make API call to fetch holdings
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
-            
+
             // Log the full response for debugging
             System.out.println("=== AngelOne Holdings API Response ===");
             System.out.println("Status Code: " + response.getStatusCode());
             System.out.println("Response Body: " + response.getBody());
             System.out.println("=====================================");
-            
+
             JsonNode root = objectMapper.readTree(response.getBody());
             List<HoldingResponse> userHoldings = new ArrayList<>();
 
             // Parse holdings data if response is successful
             if (root.has("data") && !root.get("data").isNull() && root.get("status").asBoolean()) {
                 JsonNode dataObj = root.get("data");
-                
+
                 System.out.println("Data object structure: " + dataObj.toString());
 
                 if (dataObj.has("holdings") && !dataObj.get("holdings").isNull()) {
@@ -515,6 +516,61 @@ public class MarketDataService {
         }
     }
 
+    public List<OIResponse> getOIResponse(){
+        if(jwtToken == null) {
+            System.err.println("Angel One API returned error status");
+            return new ArrayList<>();
+        }
+        try{
+            String URL = BASE_URL + "/rest/secure/angelbroking/marketData/v1/putCallRatio";
+            HttpHeaders headers = createHeaders(true);
+
+            // Create HTTP entity with headers only (GET request - no body)
+            HttpEntity<Void> request = new HttpEntity<>(headers);
+
+            //Make API call to fetch PCR data
+            ResponseEntity<String> response = restTemplate.exchange(URL, HttpMethod.GET, request, String.class);
+            String responseBody = response.getBody();
+
+            // Log response for debugging
+            System.out.println("=== PCR/OI API Response ===");
+            System.out.println("Status: " + response.getStatusCode());
+            System.out.println("Full Response: " + responseBody);
+            System.out.println("===========================");
+
+            JsonNode root = objectMapper.readTree(responseBody);
+            List<OIResponse> oiResponse = new ArrayList<>();
+
+            if(root.has("data") && !root.get("data").isNull() && root.get("status").asBoolean()) {
+                JsonNode dataArray = root.get("data");
+                System.out.println("Data is array: " + dataArray.isArray());
+                System.out.println("Data array size: " + (dataArray.isArray() ? dataArray.size() : "N/A"));
+
+                if(dataArray.isArray()) {
+                    for(JsonNode item : dataArray) {
+                        OIResponse DTO = OIResponse.builder()
+                                .pcr(item.has("pcr") ? item.get("pcr").asDouble() : 0.0)
+                                .tradingSymbol(item.has("tradingSymbol") ? item.get("tradingSymbol").asText() : "")
+                                .build();
+                        oiResponse.add(DTO);
+                        System.out.println("Added PCR: " + DTO.getPcr() + " for " + DTO.getTradingSymbol());
+                    }
+                }
+            } else {
+                System.err.println("PCR API returned error or invalid data structure");
+                System.err.println("Has data: " + root.has("data"));
+                System.err.println("Status: " + (root.has("status") ? root.get("status").asBoolean() : "missing"));
+            }
+
+            System.out.println("Returning " + oiResponse.size() + " PCR entries");
+            return oiResponse;
+        } catch (Exception e) {
+            System.err.println("Error fetching OI Response: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
     // Parse indices response JSON into a map of index name to LTP
     private Map<String, Double> parseIndicesResponse(String responseBody){ // FIXED: Changed '=' to method declaration
         Map<String, Double> indicesMap = new HashMap<>();
@@ -542,6 +598,8 @@ public class MarketDataService {
         }
         return indicesMap;
     }
+
+
 
     // Auto-detect local IP address of the machine
     private String getLocalIPAddress() {
