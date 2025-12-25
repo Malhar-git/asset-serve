@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "../UI-Components/button";
 import axios from "axios";
-import {useRouter} from "next/navigation";
+import { useRouter } from "next/navigation";
+import { setAuthToken } from '../lib/axios-interceptor';
 
 export default function LoginPage() {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);//State for maintaining dropdown state in hero card what'new
@@ -29,6 +30,8 @@ export default function LoginPage() {
         email: formData.email,
         password: formData.password,
       });
+
+      setAuthToken(response.data.token);
 
       //Save Token and Redirect
       const { token } = response.data;

@@ -120,7 +120,12 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
   return <div ref={chartContainerRef} className="w-full" />;
 };
 
-export default function Chart() {
+interface ChartInput{
+  symbolToken: string;
+  symbolName: string;
+}
+
+export default function Chart({symbolToken, symbolName}:ChartInput) {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [interval, setInterval] = useState<"ONE_HOUR" | "ONE_DAY" | "ONE_WEEK">("ONE_HOUR");
@@ -143,6 +148,7 @@ export default function Chart() {
   };
 
   useEffect(() => {
+    if(!symbolToken) return;
     const fetchHistory = async () => {
       try {
         setLoading(true);
@@ -150,7 +156,7 @@ export default function Chart() {
         const response = await api.get("/priceHistory", {
           params: {
             exchange: "NSE",
-            symboltoken: "3045",
+            symboltoken: symbolToken,
             interval: interval,
             fromDate: fromDate,
             toDate: toDate,
@@ -194,7 +200,7 @@ export default function Chart() {
     <div className="bg-white rounded-t-lg">
       {/* Header with interval and period selectors */}
       <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">SBI Performance</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{symbolName}</h3>
 
         <div className="flex items-center gap-3">
           {/* Interval selector */}

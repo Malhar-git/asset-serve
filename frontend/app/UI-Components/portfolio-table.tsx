@@ -53,9 +53,9 @@ export default function PortfolioTables() {
   }
 
   return (
-    <div className="relative overflow-x-auto overflow-y-auto max-h-[500px] bg-neutral-primary-soft shadow-xs rounded-base border border-default">
-      <table className="w-full text-sm text-left rtl:text-right text-body border-collapse">
-        <thead className="text-sm text-body bg-neutral-secondary-soft border-b border-default rounded-base sticky top-0 z-20">
+    <div className="relative overflow-x-auto overflow-y-auto max-h-[500px] bg-neutral-primary-soft shadow-xs rounded-base">
+      <table className="w-full text-sm text-left rtl:text-right text-body">
+        <thead className="text-sm text-body bg-slate-50 sticky top-0 ">
           <tr>
             <th scope="col" className="px-6 py-3 font-medium border-0 sticky left-0 bg-neutral-secondary-soft z-30">
               Name

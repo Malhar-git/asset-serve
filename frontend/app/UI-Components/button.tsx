@@ -11,7 +11,8 @@ const buttonVariants = cva(
         buy: 'button--buy bg-green-700 text-white hover:bg-green-800 focus:ring-green-600',
         ghost: 'button--ghost text-blue-700 hover:bg-blue-600 focus:ring-blue-600',
         danger: 'button--danger bg-red-600 text-white hover:bg-red-600 focus: ring-red-500',
-        minimal: 'button--minimal bg-black text-white hover:bg-gray-900'
+        minimal: 'button--minimal bg-black text-white hover:bg-gray-900',
+        opaque: 'button-transparent bg-transparent text-black hover:bg-gray-200',
       },
       size: {
         sm: 'button--sm text-sm px-3 py-1.5 rounded-sm',
