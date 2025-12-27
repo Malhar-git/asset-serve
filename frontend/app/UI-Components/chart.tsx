@@ -120,12 +120,12 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
   return <div ref={chartContainerRef} className="w-full" />;
 };
 
-interface ChartInput{
+interface ChartInput {
   symbolToken: string;
   symbolName: string;
 }
 
-export default function Chart({symbolToken, symbolName}:ChartInput) {
+export default function Chart({ symbolToken, symbolName }: ChartInput) {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [interval, setInterval] = useState<"ONE_HOUR" | "ONE_DAY" | "ONE_WEEK">("ONE_HOUR");
@@ -148,7 +148,7 @@ export default function Chart({symbolToken, symbolName}:ChartInput) {
   };
 
   useEffect(() => {
-    if(!symbolToken) return;
+    if (!symbolToken) return;
     const fetchHistory = async () => {
       try {
         setLoading(true);
@@ -172,7 +172,7 @@ export default function Chart({symbolToken, symbolName}:ChartInput) {
     };
 
     fetchHistory();
-  }, [interval, period]);
+  }, [interval, period, symbolToken]);
 
   const intervalLabels = {
     ONE_HOUR: "1H",
@@ -210,8 +210,8 @@ export default function Chart({symbolToken, symbolName}:ChartInput) {
                 key={int}
                 onClick={() => setInterval(int)}
                 className={`px-2 py-1 text-xs font-medium rounded transition-colors ${interval === int
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
                   }`}
               >
                 {intervalLabels[int]}
@@ -226,8 +226,8 @@ export default function Chart({symbolToken, symbolName}:ChartInput) {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-2 py-1 text-xs font-medium rounded transition-colors ${period === p
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
                   }`}
               >
                 {p}

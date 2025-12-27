@@ -5,10 +5,10 @@ import { ReactNode } from "react";
 interface HeaderProps {
   userName: string;
   userEmail: string;
-  searchInput: ReactNode;
+  searchBar: ReactNode; // Slot pattern
 }
 
-export default function Header({userName, userEmail, searchInput}:HeaderProps){
+export default function Header({ userName, userEmail, searchBar }: HeaderProps) {
 
   let initials = '?';
   try {
@@ -40,7 +40,7 @@ export default function Header({userName, userEmail, searchInput}:HeaderProps){
         <PriceTicker />
       </div>
       <div className="header__searchInput flex-1 max-w-md mx-4">
-        {searchInput}
+        {searchBar}
       </div>
       <div className="header__user-avatar w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold" title={userEmail}>
         {initials || '?'}
