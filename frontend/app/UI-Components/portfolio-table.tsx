@@ -53,11 +53,11 @@ export default function PortfolioTables() {
   }
 
   return (
-    <div className="relative overflow-x-auto overflow-y-auto max-h-[500px] bg-neutral-primary-soft shadow-xs rounded-base">
+    <div className="relative  max-h-[500px] bg-neutral-primary-soft shadow-xs rounded-base">
       <table className="w-full text-sm text-left rtl:text-right text-body">
         <thead className="text-sm text-body bg-slate-50 sticky top-0 ">
           <tr>
-            <th scope="col" className="px-6 py-3 font-medium border-0 sticky left-0 bg-neutral-secondary-soft z-30">
+            <th scope="col" className="px-6 py-3 font-medium border-0 sticky top-0 left-0 bg-neutral-secondary-soft z-30">
               Name
             </th>
             <th scope="col" className="px-6 py-3 font-medium border-0">
@@ -98,8 +98,7 @@ export default function PortfolioTables() {
               >
                 <th
                   scope="row"
-                  className="px-6 py-4 font-medium text-heading whitespace-nowrap border-0 sticky left-0 z-10"
-                  style={{ backgroundColor: index % 2 === 0 ? 'white' : 'rgb(245 245 245)' }}
+                  className={`px-6 py-4 font-medium text-heading whitespace-nowrap border-0 sticky left-0 z-20 bg-neutral-secondary-soft`}
                 >
                   {item.tradingSymbol}
                 </th>

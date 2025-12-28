@@ -43,7 +43,7 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       },
       width: chartContainerRef.current.clientWidth,
-      height: 280,
+      height: 240,
       grid: {
         vertLines: {
           color: "#6366f1",
