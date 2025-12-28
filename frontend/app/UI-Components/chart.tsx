@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import { LineSeries, createChart, ColorType } from "lightweight-charts";
+import { LineSeries, createChart, ColorType, AreaSeries } from "lightweight-charts";
 import { processChartData } from "../lib/chartUtils";
 import api from "../lib/axios-interceptor";
 
@@ -38,67 +38,95 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: backgroundColor },
-        textColor: textColor,
-        fontSize: 11,
+        textColor: "#6b7280",
+        fontSize: 12,
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       },
       width: chartContainerRef.current.clientWidth,
-      height: 220,
+      height: 280,
       grid: {
-        vertLines: { color: "#f1f5f9" },
-        horzLines: { color: "#f1f5f9" },
+        vertLines: {
+          color: "#6366f1",
+          style: 1,
+          visible: true,
+        },
+        horzLines: {
+          color: "rgba(229, 231, 235, 0.5)",
+          style: 1,
+          visible: false,
+        },
       },
       crosshair: {
         mode: 1,
         vertLine: {
-          color: '#cbd5e1',
+          color: 'rgba(99, 102, 241, 0.4)',
           width: 1,
-          style: 2,
-          labelBackgroundColor: '#2563eb',
+          style: 3,
+          labelBackgroundColor: '#6366f1',
         },
         horzLine: {
-          color: '#cbd5e1',
+          color: 'rgba(99, 102, 241, 0.4)',
           width: 1,
-          style: 2,
-          labelBackgroundColor: '#2563eb',
+          style: 3,
+          labelBackgroundColor: '#6366f1',
         },
       },
       timeScale: {
-        borderColor: "#e2e8f0",
+        borderColor: "#e5e7eb",
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 5,
-        barSpacing: 10,
-        minBarSpacing: 5,
-        fixLeftEdge: false,
-        fixRightEdge: false,
+        rightOffset: 12,
+        barSpacing: 12,
+        minBarSpacing: 8,
+        fixLeftEdge: true,
+        fixRightEdge: true,
       },
       rightPriceScale: {
-        borderColor: "#e2e8f0",
+        borderColor: "#e5e7eb",
         scaleMargins: {
-          top: 0.2,
-          bottom: 0.15,
+          top: 0.1,
+          bottom: 0.2,
         },
+        mode: 0,
+        autoScale: true,
+        alignLabels: true,
+        borderVisible: true,
+      },
+      leftPriceScale: {
+        visible: false,
       },
       handleScroll: {
         mouseWheel: true,
         pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
       },
       handleScale: {
         axisPressedMouseMove: true,
         mouseWheel: true,
         pinch: true,
       },
+      kineticScroll: {
+        touch: true,
+        mouse: false,
+      },
     });
 
-    const lineSeries = chart.addSeries(LineSeries, {
-      color: lineColor,
+    const areaSeries = chart.addSeries(AreaSeries, {
+      topColor: 'rgba(99, 102, 241, 0.4)',
+      bottomColor: 'rgba(99, 102, 241, 0.02)',
+      lineColor: '#6366f1',
       lineWidth: 2,
       crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 5,
-      crosshairMarkerBorderColor: lineColor,
+      crosshairMarkerRadius: 6,
+      crosshairMarkerBorderColor: '#6366f1',
       crosshairMarkerBackgroundColor: '#ffffff',
+      crosshairMarkerBorderWidth: 2,
       lastValueVisible: true,
       priceLineVisible: true,
+      priceLineWidth: 1,
+      priceLineColor: '#6366f1',
+      priceLineStyle: 3,
     });
 
     const formattedData = data.map(item => ({
@@ -106,7 +134,7 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
       value: item.value,
     }));
 
-    lineSeries.setData(formattedData);
+    areaSeries.setData(formattedData);
     chart.timeScale().fitContent();
 
     window.addEventListener("resize", handleResize);
@@ -121,15 +149,23 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
 };
 
 interface ChartInput {
-  symbolToken: string;
-  symbolName: string;
+  symbolToken?: string;
+  symbolName?: string;
 }
 
 export default function Chart({ symbolToken, symbolName }: ChartInput) {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [interval, setInterval] = useState<"ONE_HOUR" | "ONE_DAY" | "ONE_WEEK">("ONE_HOUR");
+  const [interval, setInterval] = useState<"FIVE_MINUTE" | "ONE_HOUR" | "ONE_DAY">("ONE_HOUR");
   const [period, setPeriod] = useState<"1Y" | "3Y">("1Y");
+
+  // Default values for NIFTY 50
+  const DEFAULT_TOKEN = "99926000";
+  const DEFAULT_NAME = "NIFTY 50";
+
+  // Use provided values or defaults
+  const activeToken = symbolToken || DEFAULT_TOKEN;
+  const activeName = symbolName || DEFAULT_NAME;
 
   // Calculate date range based on selected period
   const getDateRange = () => {
@@ -148,20 +184,22 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
   };
 
   useEffect(() => {
-    if (!symbolToken) return;
+    // ✅ No early return - always fetch data using activeToken
     const fetchHistory = async () => {
       try {
         setLoading(true);
         const { fromDate, toDate } = getDateRange();
+
         const response = await api.get("/priceHistory", {
           params: {
             exchange: "NSE",
-            symboltoken: symbolToken,
+            symboltoken: activeToken, // Uses default token if none provided
             interval: interval,
             fromDate: fromDate,
             toDate: toDate,
           },
         });
+
         const formattedData = processChartData(response.data);
         setChartData(formattedData);
       } catch (error) {
@@ -172,40 +210,48 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
     };
 
     fetchHistory();
-  }, [interval, period, symbolToken]);
+  }, [interval, period, activeToken]); // Dependency on activeToken
 
   const intervalLabels = {
+    FIVE_MINUTE: "5 MIN",
     ONE_HOUR: "1H",
     ONE_DAY: "1D",
-    ONE_WEEK: "1W",
   };
 
   if (loading) {
     return (
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">SBI Performance</h3>
+          <h3 className="text-sm font-semibold text-gray-900">{activeName}</h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">{intervalLabels[interval]} Chart</span>
           </div>
         </div>
         <div className="flex items-center justify-center h-56">
-          <div className="text-sm text-gray-400">Loading...</div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-sm text-gray-400">Loading chart data...</div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-t-lg">
+    <div className="bg-white rounded-t-lg border border-gray-200">
       {/* Header with interval and period selectors */}
       <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">{symbolName}</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">{activeName}</h3>
+          {!symbolToken && (
+            <p className="text-xs text-gray-500 mt-0.5">Default view</p>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           {/* Interval selector */}
           <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
-            {(["ONE_HOUR", "ONE_DAY", "ONE_WEEK"] as const).map((int) => (
+            {(["FIVE_MINUTE", "ONE_HOUR", "ONE_DAY"] as const).map((int) => (
               <button
                 key={int}
                 onClick={() => setInterval(int)}
