@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"; // Required for the dropdown state
 
 import { useState } from "react";
@@ -8,9 +9,12 @@ import { setAuthToken } from '../lib/axios-interceptor';
 
 export default function LoginPage() {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);//State for maintaining dropdown state in hero card what'new
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ firstName: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [isLogin, setIsLogin] = useState(true);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const router = useRouter();
 
@@ -20,26 +24,52 @@ export default function LoginPage() {
     setError("");
   }
 
-  //Handle Form Submission
-  const handleLogin = async () => {
+  // [NEW] Function to toggle modes and reset form errors
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setError("");
+    setFormData({ firstName: "", email: "", password: "" }); // Optional: clear inputs on toggle
+  }
+
+  // Handle Form Submission
+  const handleSubmit = async () => {
     setLoading(true);
     setError("");
+    setSuccessMessage(""); // Clear previous messages
 
     try {
-      const response = await axios.post("http://localhost:8080/api/auth/login", {
-        email: formData.email,
-        password: formData.password,
-      });
+      if (isLogin) {
+        // --- LOGIN LOGIC ---
+        const response = await axios.post("http://localhost:8080/api/auth/login", {
+          email: formData.email,
+          password: formData.password,
+        });
 
-      setAuthToken(response.data.token);
+        const { token } = response.data;
+        setAuthToken(token);
+        localStorage.setItem("token", token);
+        router.push("/dashboard");
 
-      //Save Token and Redirect
-      const { token } = response.data;
-      localStorage.setItem("token", token);// Save JWT Token TO Browser Storage
-      router.push("/dashboard");//Redirect to dashboard
-    } catch (err: unknown) {
-      console.error("Login Failed", err);
-      setError("Invalid Credentials, Pls try again");
+      } else {
+        // --- REGISTER LOGIC ---
+        // 1. Call Register Endpoint
+        await axios.post("http://localhost:8080/api/auth/register", {
+          firstName: formData.firstName, // Matches your Java Request
+          email: formData.email,
+          password: formData.password,
+        });
+
+        // 2. Handle Success (Backend returns string "User registered successfully")
+        setSuccessMessage("Registration successful! Please log in.");
+        setIsLogin(true); // Switch back to login form automatically
+      }
+
+    } catch (err: any) {
+      console.error("Auth Failed", err);
+      // Handle specific error messages from backend
+      // Note: Your register backend returns 400 Bad Request if user exists
+      const msg = err.response?.data || "Authentication failed. Please try again.";
+      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);
     }
@@ -54,7 +84,9 @@ export default function LoginPage() {
         <div className="login__form--content w-full max-w-sm space-y-8">
 
           <div className="text-center">
-            <h1 className="text-4xl font-semibold text-gray-900">Welcome Back</h1>
+            <h1 className="text-4xl font-semibold text-gray-900">
+              {isLogin ? "Welcome Back" : "Create Account"}
+            </h1>
             <p className="mt-2 text-base text-gray-500">Let&apos;s sign you in securely</p>
           </div>
 
@@ -66,6 +98,27 @@ export default function LoginPage() {
           )}
 
           <div className="login__form--inputs space-y-4">
+
+            {/* [NEW] Name Input - Only visible during Registration */}
+            {!isLogin && (
+              <div className="relative__input-name relative animate-in fade-in slide-in-from-bottom-2">
+                <input
+                  type="text"
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  disabled={loading}
+                  placeholder="Enter Your Name"
+                  className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 placeholder-transparent"
+                />
+                <label
+                  htmlFor="name"
+                  className="absolute left-3 top-[-8px] bg-white px-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-blue-600"
+                >
+                  Full Name
+                </label>
+              </div>
+            )}
 
             {/* Email Input Group */}
             <div className="relative__input-email relative">
@@ -105,7 +158,7 @@ export default function LoginPage() {
                   peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm
                   peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-blue-600"
               >
-                Enter your Password
+                {isLogin ? "Enter your Password" : "Create a Password"}
               </label>
             </div>
           </div>
@@ -113,9 +166,11 @@ export default function LoginPage() {
           {/* Buttons Container */}
           <div className="login__form--actions flex flex-col space-y-4">
             {/* Primary Button */}
-            <Button onClick={handleLogin} variant="minimal" className="w-full py-3 justify-center items-center">
-              Log in with Email
-              {loading ? "Signing in..." : "Login with Mail"}
+            <Button onClick={handleSubmit} variant="minimal" className="w-full py-3 justify-center items-center">
+              {loading
+                ? "Processing..."
+                : (isLogin ? "Log in with Email" : "Create Account")
+              }
             </Button>
 
             {/* Google Button */}
@@ -140,6 +195,31 @@ export default function LoginPage() {
               </svg>
               Log in with Google
             </button>
+
+            <div className="text-center text-sm text-gray-600 mt-4">
+              {isLogin ? (
+                <>
+                  Don&apos;t have an account?{" "}
+                  <button
+                    onClick={toggleMode}
+                    className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    onClick={toggleMode}
+                    className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+                  >
+                    Log in
+                  </button>
+                </>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
