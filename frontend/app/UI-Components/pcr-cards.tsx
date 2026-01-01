@@ -8,16 +8,14 @@ interface CategorySectionProps {
   title: string;
   items: PcrData[];
   color: string;
-  icon: string;
 }
 
-function CategorySection({ title, items, color, icon }: CategorySectionProps) {
+function CategorySection({ title, items, color}: CategorySectionProps) {
   if (items.length === 0) return null;
 
   return (
     <div className="py-2 border-b border-gray-100 last:border-b-0">
       <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="text-sm">{icon}</span>
         <h4 className={`text-xs font-semibold ${color}`}>{title}</h4>
       </div>
       <div className="space-y-1">
@@ -101,25 +99,21 @@ export default function PcrCards() {
           title="Oversold"
           items={pcrData.oversold}
           color="text-purple-600"
-          icon="📉"
         />
         <CategorySection
           title="Bearish"
           items={pcrData.bearish}
           color="text-red-600"
-          icon="🐻"
         />
         <CategorySection
           title="Neutral"
           items={pcrData.neutral}
           color="text-gray-600"
-          icon="⚖️"
         />
         <CategorySection
           title="Bullish"
           items={pcrData.bullish}
           color="text-green-600"
-          icon="🐂"
         />
       </div>
     </div>
