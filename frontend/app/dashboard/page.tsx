@@ -5,7 +5,6 @@ import Sidebar from "../sidebar/sidebar";
 import Chart from "../UI-Components/chart";
 import PortfolioTables from "../UI-Components/portfolio-table";
 import SearchInput from "../UI-Components/search-input";
-
 export default function DashboardPage() {
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string>("");

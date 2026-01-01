@@ -1,5 +1,7 @@
+import { useRouter } from "next/navigation";
 import { getCurrentDate, getInitials, getSalutaions } from "../lib/utils";
 import { ReactNode, useState } from "react"; // 1. Import useState
+import { Button } from "../UI-Components/button";
 
 interface HeaderProps {
   userName: string;
@@ -23,6 +25,10 @@ export default function Header({ userName, userEmail, searchBar }: HeaderProps) 
 
   const salutation = getSalutaions();
   const dateDisplay = getCurrentDate();
+
+  //Using next.js router for Watchlist page traversal
+  const router = useRouter();
+
 
   const signout = () => {
     localStorage.removeItem("authToken");
@@ -48,6 +54,11 @@ export default function Header({ userName, userEmail, searchBar }: HeaderProps) 
         {searchBar}
       </div>
 
+      {/* Watchlist Button */}
+      <div className="watchlist">
+        <Button size="md" onClick={() => router.push("/watchlist")}>WatchList</Button>
+      </div>
+
       {/*Wrap avatar in a relative div for positioning */}
       <div className="relative">
         <button
@@ -57,7 +68,6 @@ export default function Header({ userName, userEmail, searchBar }: HeaderProps) 
         >
           {initials || '?'}
         </button>
-
         {/*The Dropdown (Conditional Render) */}
         {isMenuOpen && (
           <div className="absolute right-full top-0 mr-2 w-32 bg-white rounded-md shadow-lg border border-gray-100 z-50 overflow-hidden">

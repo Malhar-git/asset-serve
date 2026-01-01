@@ -7,6 +7,9 @@ export default function Sidebar() {
 
   return (
     <div className="sidebar__content">
+      <div className="sidebar__price-ticker flex justify-center mb-6">
+        <PriceTicker />
+      </div>
       <PcrCards />
     </div>
   );

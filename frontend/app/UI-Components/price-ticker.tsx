@@ -168,7 +168,7 @@ const PriceTicker: React.FC = () => {
     if (entries.length === 0) return null;
 
     return (
-      <div className="flex items-center gap-6 overflow-hidden">
+      <div className="flex flex-col items-center gap-6 overflow-hidden">
         {entries.map(([name, currentValue], index) => {
           const numericValue = typeof currentValue === 'number' ? currentValue : 0;
           const prevClose = prevCloses[name];
@@ -187,7 +187,7 @@ const PriceTicker: React.FC = () => {
           }
 
           return (
-            <div key={index} className="flex flex-col bg-white rounded-xl p-2 whitespace-nowrap">
+            <div key={index} className="flex flex-col bg-white rounded-xl p-2 whitespace-nowrap w-50 h-18">
               <div className="flex items-center gap-1">
                 <span className="text-xs text-black font-medium">{name}</span>
                 {change === 'up' && (
