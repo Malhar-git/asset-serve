@@ -10,12 +10,12 @@ interface CategorySectionProps {
   color: string;
 }
 
-function CategorySection({ title, items, color}: CategorySectionProps) {
+function CategorySection({ title, items, color }: CategorySectionProps) {
   if (items.length === 0) return null;
 
   return (
-    <div className="py-2 border-b border-gray-100 last:border-b-0">
-      <div className="flex items-center gap-1.5 mb-1.5">
+    <div className="py-2 mt-0.5 border-b border-gray-100 last:border-b-0">
+      <div className="flex items-center">
         <h4 className={`text-xs font-semibold ${color}`}>{title}</h4>
       </div>
       <div className="space-y-1">
@@ -37,15 +37,23 @@ function CategorySection({ title, items, color}: CategorySectionProps) {
   );
 }
 
-export default function PcrCards() {
+export default function PcrCards({ authReady }: { authReady: boolean }) {
   const [pcrData, setPcrData] = useState<SegregatedPcrData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPcrData = async () => {
+    if (!authReady) {
+      return;
+    }
+
+    let isActive = true;
+
+    const fetchPcrData = async (showLoader: boolean) => {
       try {
-        setLoading(true);
+        if (showLoader) {
+          setLoading(true);
+        }
         const response = await api.get("/dashboard/pcr");
 
         let data: PcrData[] = [];
@@ -56,20 +64,34 @@ export default function PcrCards() {
         }
 
         const segregated = segregatePcrData(data);
+        if (!isActive) {
+          return;
+        }
         setPcrData(segregated);
         setError(null);
       } catch (err) {
         console.error("Error fetching PCR data:", err);
+        if (!isActive) {
+          return;
+        }
         setError("Failed to load PCR data");
       } finally {
-        setLoading(false);
+        if (!isActive) {
+          return;
+        }
+        if (showLoader) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchPcrData();
-    const interval = setInterval(fetchPcrData, 300000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchPcrData(true);
+    const interval = setInterval(() => fetchPcrData(false), 300000);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [authReady]);
 
   if (loading) {
     return (

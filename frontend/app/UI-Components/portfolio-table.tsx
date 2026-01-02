@@ -13,28 +13,46 @@ interface PortfolioItem {
   profitPercentage: number;
 }
 
-export default function PortfolioTables() {
+export default function PortfolioTables({ authReady }: { authReady: boolean }) {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!authReady) {
+      return;
+    }
+
+    let isActive = true;
+
     const fetchPortfolio = async () => {
       try {
         setLoading(true);
         const response = await api.get("/dashboard/portfolio");
+        if (!isActive) {
+          return;
+        }
         setPortfolio(response.data);
         setError(null);
       } catch (err) {
         console.error("Failed to fetch portfolio:", err);
+        if (!isActive) {
+          return;
+        }
         setError("Failed to load portfolio data");
       } finally {
+        if (!isActive) {
+          return;
+        }
         setLoading(false);
       }
     };
 
     fetchPortfolio();
-  }, []);
+    return () => {
+      isActive = false;
+    };
+  }, [authReady]);
 
   if (loading) {
     return (
@@ -54,8 +72,8 @@ export default function PortfolioTables() {
 
   return (
     <div className="relative  max-h-[500px] bg-neutral-primary-soft shadow-xs rounded-base">
-      <table className="w-full text-sm text-left rtl:text-right text-body">
-        <thead className="text-sm text-body bg-slate-50 sticky top-0 ">
+      <table className="w-full text-sm text-left rtl:text-right text-body border-2 border-neutral-100">
+        <thead className="text-sm text-body bg-neutral-100 sticky top-0 ">
           <tr>
             <th scope="col" className="px-6 py-3 font-medium border-0 sticky top-0 left-0 bg-neutral-secondary-soft z-30">
               Name
