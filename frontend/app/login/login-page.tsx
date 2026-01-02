@@ -2,6 +2,7 @@
 "use client"; // Required for the dropdown state
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "../UI-Components/button";
 import axios from "axios";
 import { useRouter } from "next/navigation";
@@ -45,9 +46,20 @@ export default function LoginPage() {
           password: formData.password,
         });
 
-        const { token } = response.data;
+        const { token, user } = response.data;
         setAuthToken(token);
-        localStorage.setItem("token", token);
+
+        const profile = {
+          name: user?.firstName ?? user?.name ?? formData.firstName ?? "",
+          email: user?.email ?? formData.email,
+        };
+
+        try {
+          localStorage.setItem("userProfile", JSON.stringify(profile));
+        } catch (storageError) {
+          console.warn("Unable to persist user profile", storageError);
+        }
+
         router.push("/dashboard");
 
       } else {
@@ -76,10 +88,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login__page grid grid-cols-1 md:grid-cols-2 h-screen">
+    <div className="login__page grid grid-cols-1 md:grid-cols-[35%_65%] h-screen bg-indigo-50">
 
       {/* --- LEFT SIDE: LOGIN FORM --- */}
-      <div className="login__form flex justify-center items-center bg-white p-8">
+      <div className="login__form flex justify-center items-center p-8">
         {/* Added w-full and max-w-md to control width properly */}
         <div className="login__form--content w-full max-w-sm space-y-8">
 
@@ -109,11 +121,11 @@ export default function LoginPage() {
                   onChange={handleChange}
                   disabled={loading}
                   placeholder="Enter Your Name"
-                  className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 placeholder-transparent"
+                  className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
                 />
                 <label
                   htmlFor="name"
-                  className="absolute left-3 top-[-8px] bg-white px-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-blue-600"
+                  className="absolute left-3 top-[-8px] px-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-indigo-600"
                 >
                   Full Name
                 </label>
@@ -129,13 +141,13 @@ export default function LoginPage() {
                 onChange={handleChange}
                 disabled={loading}
                 placeholder="Enter Your Email Address"
-                className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 placeholder-transparent"
+                className="peer block w-full rounded-md border border-gray-500 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
               />
               <label
                 htmlFor="email"
-                className="absolute left-3 top-[-8px] bg-white px-1 text-xs text-gray-500 transition-all
+                className="absolute left-3 top-[-8px] bg-indigo-50 px-1 text-xs text-gray-600 transition-all
                   peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm
-                  peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-blue-600"
+                  peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-indigo-600"
               >
                 Enter your Email Address
               </label>
@@ -150,13 +162,13 @@ export default function LoginPage() {
                 onChange={handleChange}
                 disabled={loading}
                 value={formData.password}
-                className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 placeholder-transparent"
+                className="peer block w-full rounded-md border border-gray-500 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
               />
               <label
                 htmlFor="password"
-                className="absolute left-3 top-[-8px] bg-white px-1 text-xs text-gray-500 transition-all
+                className="absolute left-3 top-[-8px] bg-indigo-50 px-1 text-xs text-gray-600 transition-all
                   peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm
-                  peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-blue-600"
+                  peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-indigo-600"
               >
                 {isLogin ? "Enter your Password" : "Create a Password"}
               </label>
@@ -166,7 +178,7 @@ export default function LoginPage() {
           {/* Buttons Container */}
           <div className="login__form--actions flex flex-col space-y-4">
             {/* Primary Button */}
-            <Button onClick={handleSubmit} variant="minimal" className="w-full py-3 justify-center items-center">
+            <Button onClick={handleSubmit}  className="w-full py-3 justify-center items-center">
               {loading
                 ? "Processing..."
                 : (isLogin ? "Log in with Email" : "Create Account")
@@ -202,7 +214,7 @@ export default function LoginPage() {
                   Don&apos;t have an account?{" "}
                   <button
                     onClick={toggleMode}
-                    className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+                    className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
                   >
                     Sign up
                   </button>
@@ -212,7 +224,7 @@ export default function LoginPage() {
                   Already have an account?{" "}
                   <button
                     onClick={toggleMode}
-                    className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+                    className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
                   >
                     Log in
                   </button>
@@ -225,27 +237,31 @@ export default function LoginPage() {
       </div>
 
       {/* --- RIGHT SIDE: HERO SECTION --- */}
-      <div className="relative hidden md:flex flex-col justify-center items-center bg-gradient-to-br from-blue-600 to-blue-800 p-12 text-white">
+      <div className="relative hidden md:flex flex-col justify-center items-center p-12 text-white overflow-hidden">
+        {/* Background Image */}
+        <Image
+          src="/asset-serve-dashboard.png"
+          alt="Dashboard Preview"
+          fill
+          className="object-contain"
+          priority
+        />
+        {/* Dark overlay for better text readability */}
+        <div className="absolute inset-0" />
 
         {/* "What's New" Dropdown (Top Right) */}
-        <div className="absolute top-6 right-6">
-          <button
+        <div className="absolute top-6 right-6 z-10">
+          <Button
             onClick={() => setIsWhatsNewOpen(!isWhatsNewOpen)}
-            className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20 transition-all backdrop-blur-sm"
           >
             ✨ What&apos;s New
-            <svg
-              className={`h-4 w-4 transition-transform ${isWhatsNewOpen ? 'rotate-180' : ''}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+
+          </Button>
 
           {/* Dropdown Content */}
           {isWhatsNewOpen && (
             <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-md bg-white p-4 shadow-lg text-gray-800 animate-in fade-in slide-in-from-top-2">
-              <h3 className="font-bold text-sm mb-2 text-blue-600">Latest Updates</h3>
+              <h3 className="font-bold text-sm mb-2 text-indigo-600">Latest Updates</h3>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="mt-1 block h-1.5 w-1.5 rounded-full bg-green-500"></span>
@@ -262,17 +278,6 @@ export default function LoginPage() {
               </ul>
             </div>
           )}
-        </div>
-
-        {/* Hero Content Placeholder */}
-        <div className="text-center space-y-4 max-w-lg">
-          <div className="h-64 w-full bg-white/10 rounded-xl backdrop-blur-md border border-white/20 flex items-center justify-center mb-8 shadow-2xl">
-            <span className="text-blue-100 font-medium">Dashboard Preview</span>
-          </div>
-          <h2 className="text-3xl font-bold">Manage your Wealth Smarter</h2>
-          <p className="text-blue-100">
-            Track your portfolio, analyze market trends, and optimize your taxes all in one place.
-          </p>
         </div>
 
       </div>

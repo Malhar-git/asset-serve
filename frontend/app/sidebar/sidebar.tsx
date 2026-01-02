@@ -1,8 +1,11 @@
-import { Button } from "../UI-Components/button";
 import PcrCards from "../UI-Components/pcr-cards";
 import PriceTicker from "../UI-Components/price-ticker";
 
-export default function Sidebar() {
+interface SidebarProps {
+  authReady: boolean;
+}
+
+export default function Sidebar({ authReady }: SidebarProps) {
   const navItems = ["DashBoard", "WatchList", "Market Movement"];
 
   return (
@@ -10,7 +13,7 @@ export default function Sidebar() {
       <div className="sidebar__price-ticker flex justify-center mb-6">
         <PriceTicker />
       </div>
-      <PcrCards />
+      <PcrCards authReady={authReady} />
     </div>
   );
 }
