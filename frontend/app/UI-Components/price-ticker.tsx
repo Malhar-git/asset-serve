@@ -141,7 +141,7 @@ const PriceTicker: React.FC = () => {
     }
 
     return (
-      <div className="flex flex-col gap-3 px-2 min-w-max">
+      <div className="flex flex-col gap-3 px-2 min-w-max ">
         {entries.map(([name, data], index) => {
           const change = getEffectiveChange(data);
           const percentChange = getEffectivePercentChange(data, change);
@@ -156,7 +156,7 @@ const PriceTicker: React.FC = () => {
           return (
             <div
               key={index}
-              className={`flex flex-col rounded-lg p-2 w-48 min-w-40 bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow`}
+              className={`flex flex-col h-24 rounded-lg p-2 bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow`}
             >
               {/* Index Name and Trend Icon */}
               <div className="flex items-center justify-between gap-3">

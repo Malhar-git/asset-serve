@@ -6,7 +6,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'button--primary bg-blue-700 text-amber-50 hover:bg-blue-800 focus:ring-blue-600',
+        primary: 'button--primary bg-indigo-600 text-amber-50 hover:bg-indigo-700 focus:ring-indigo-700',
         secondary: 'button--secondary bg-gray-300 text-gray-800 hover:bg-gray-400 focus:ring-gray-200',
         buy: 'button--buy bg-green-700 text-white hover:bg-green-800 focus:ring-green-600',
         ghost: 'button--ghost text-blue-700 hover:bg-blue-600 focus:ring-blue-600',
@@ -19,6 +19,7 @@ const buttonVariants = cva(
         md: 'button--md text-md px-4 py-2 rounded-md',
         lg: 'button--lg text-lg px-6 py-3 rounded-lg',
         xl: 'button-xl text-xl px-8 py-4 rounded-xl',
+        rounded: 'button--md text-md px-4 py-2 rounded-full',
       },
       fullwidth: {
         true: 'button--full-width w-full',
