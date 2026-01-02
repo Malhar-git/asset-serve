@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import api from "../lib/axios-interceptor";
+import Header from "../components/header";
 import { Plus, Star, Trash2, TrendingDown, TrendingUp, X } from "lucide-react";
 
 interface WatchListItem {
@@ -23,7 +24,6 @@ interface SearchResult {
 interface AddStockModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onAdd: (data: any) => void;
 }
 
@@ -196,8 +196,23 @@ export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userDetails, setUserDetails] = useState({ name: "", email: "" });
 
   useEffect(() => {
+    // Load user profile
+    try {
+      const raw = localStorage.getItem("userProfile");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setUserDetails({
+          name: typeof parsed?.name === "string" ? parsed.name : "",
+          email: typeof parsed?.email === "string" ? parsed.email : "",
+        });
+      }
+    } catch {
+      // ignore
+    }
+
     fetchWatchlist();
 
     // Refresh prices every 30 seconds
@@ -244,142 +259,162 @@ export default function Watchlist() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-gray-600">Loading watchlist...</span>
+      <div className="watchlist__page h-screen grid grid-rows-[auto_1fr] bg-indigo-50">
+        <div className="header">
+          <Header
+            userName={userDetails.name}
+            userEmail={userDetails.email}
+            showBackToDashboard
+          />
         </div>
-      </div>  
+        <div className="flex items-center justify-center">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-gray-600">Loading watchlist...</span>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Star className="text-yellow-500 fill-yellow-500" size={24} />
-              My Watchlist
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {watchlist.length} {watchlist.length === 1 ? 'stock' : 'stocks'} tracked
-            </p>
+    <div className="watchlist__page h-screen grid grid-rows-[auto_1fr] border-2 border-indigo-800">
+      <div className="header border-2 border-indigo-100">
+        <Header
+          userName={userDetails.name}
+          userEmail={userDetails.email}
+          showBackToDashboard
+        />
+      </div>
+      <div className="main__content flex-1 overflow-auto p-6">
+        {/* Page Title */}
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Star className="text-yellow-500 fill-yellow-500" size={24} />
+                  My Watchlist
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  {watchlist.length} {watchlist.length === 1 ? 'stock' : 'stocks'} tracked
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Plus size={18} />
+                Add Stock
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={18} />
-            Add Stock
-          </button>
+
+          {/* Watchlist Table */}
+          {watchlist.length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+              <Star className="mx-auto text-gray-300 mb-4" size={48} />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No stocks in watchlist</h3>
+              <p className="text-gray-500 mb-4">Start tracking stocks you&apos;re interested in buying</p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Plus size={18} />
+                Add Your First Stock
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Symbol
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Current Price (LTP)
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Target Price
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Difference
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {watchlist.map((item) => {
+                      const difference = (item.ltp ?? 0) - (item.targetPrice ?? 0);
+                      const isAboveTarget = difference > 0;
+
+                      return (
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{item.symbolName}</div>
+                              <div className="text-xs text-gray-500">{item.symbolToken}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm font-semibold text-gray-900">₹{item.ltp.toFixed(2)}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm text-indigo-600 font-medium">₹{item.targetPrice.toFixed(2)}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {isAboveTarget ? (
+                                <TrendingUp size={14} className="text-red-600" />
+                              ) : (
+                                <TrendingDown size={14} className="text-green-600" />
+                              )}
+                              <span className={`text-sm font-medium ${isAboveTarget ? 'text-red-600' : 'text-green-600'}`}>
+                                {isAboveTarget ? '+' : ''}₹{Math.abs(difference).toFixed(2)}
+                              </span>
+                            </div>
+                            {isAboveTarget ? (
+                              <span className="text-xs text-red-500">Above target</span>
+                            ) : (
+                              <span className="text-xs text-green-500">Below target</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 max-w-xs">
+                            <span className="text-sm text-gray-600 line-clamp-2">{item.notes || '-'}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => handleRemoveStock(item.symbolToken)}
+                              className="text-red-600 hover:text-red-800 transition-colors"
+                              title="Remove from watchlist"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Add Stock Modal */}
+          <AddStockModel
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onAdd={handleAddStock}
+          />
         </div>
       </div>
-
-      {/* Watchlist Table */}
-      {watchlist.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-          <Star className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No stocks in watchlist</h3>
-          <p className="text-gray-500 mb-4">Start tracking stocks you&apos;re interested in buying</p>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={18} />
-            Add Your First Stock
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Symbol
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Current Price (LTP)
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Target Price
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Difference
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Notes
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {watchlist.map((item) => {
-                  const difference = (item.ltp ?? 0) - (item.targetPrice ?? 0);
-                  const isAboveTarget = difference > 0;
-
-                  return (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{item.symbolName}</div>
-                          <div className="text-xs text-gray-500">{item.symbolToken}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-semibold text-gray-900">₹{item.ltp.toFixed(2)}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm text-indigo-600 font-medium">₹{item.targetPrice.toFixed(2)}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {isAboveTarget ? (
-                            <TrendingUp size={14} className="text-red-600" />
-                          ) : (
-                            <TrendingDown size={14} className="text-green-600" />
-                          )}
-                          <span className={`text-sm font-medium ${isAboveTarget ? 'text-red-600' : 'text-green-600'}`}>
-                            {isAboveTarget ? '+' : ''}₹{Math.abs(difference).toFixed(2)}
-                          </span>
-                        </div>
-                        {isAboveTarget ? (
-                          <span className="text-xs text-red-500">Above target</span>
-                        ) : (
-                          <span className="text-xs text-green-500">Below target</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 max-w-xs">
-                        <span className="text-sm text-gray-600 line-clamp-2">{item.notes || '-'}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={() => handleRemoveStock(item.symbolToken)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                          title="Remove from watchlist"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Add Stock Modal */}
-      <AddStockModel
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onAdd={handleAddStock}
-      />
     </div>
   );
 }
