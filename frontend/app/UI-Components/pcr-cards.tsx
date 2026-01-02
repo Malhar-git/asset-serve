@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import api from "../lib/axios-interceptor";
-import { PcrData, SegregatedPcrData, segregatePcrData } from "../lib/pcrUtils";
+import api, { getErrorMessage } from "../lib/axios-interceptor";
+import { PcrData, SegregatedPcrData, segregatePcrData } from "../lib/pcr-utils";
+import { RefreshCw } from "lucide-react";
 
 interface CategorySectionProps {
   title: string;
@@ -39,61 +40,49 @@ function CategorySection({ title, items, color }: CategorySectionProps) {
 
 export default function PcrCards({ authReady }: { authReady: boolean }) {
   const [pcrData, setPcrData] = useState<SegregatedPcrData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const fetchPcrData = async (showLoader: boolean) => {
+    try {
+      if (showLoader) {
+        setIsLoading(true);
+      }
+      setErrorMessage(null);
+      const response = await api.get("/dashboard/pcr");
+
+      let data: PcrData[] = [];
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        data = response.data.data;
+      }
+
+      const segregated = segregatePcrData(data);
+      setPcrData(segregated);
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setErrorMessage(message);
+    } finally {
+      if (showLoader) {
+        setIsLoading(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!authReady) {
       return;
     }
 
-    let isActive = true;
-
-    const fetchPcrData = async (showLoader: boolean) => {
-      try {
-        if (showLoader) {
-          setLoading(true);
-        }
-        const response = await api.get("/dashboard/pcr");
-
-        let data: PcrData[] = [];
-        if (Array.isArray(response.data)) {
-          data = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          data = response.data.data;
-        }
-
-        const segregated = segregatePcrData(data);
-        if (!isActive) {
-          return;
-        }
-        setPcrData(segregated);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching PCR data:", err);
-        if (!isActive) {
-          return;
-        }
-        setError("Failed to load PCR data");
-      } finally {
-        if (!isActive) {
-          return;
-        }
-        if (showLoader) {
-          setLoading(false);
-        }
-      }
-    };
-
     fetchPcrData(true);
-    const interval = setInterval(() => fetchPcrData(false), 300000);
+    const intervalId = setInterval(() => fetchPcrData(false), 300000);
     return () => {
-      isActive = false;
-      clearInterval(interval);
+      clearInterval(intervalId);
     };
   }, [authReady]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-4">
         <div className="animate-pulse h-48 bg-gray-200 rounded-lg"></div>
@@ -101,10 +90,19 @@ export default function PcrCards({ authReady }: { authReady: boolean }) {
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className="p-4">
-        <div className="text-xs text-red-500 text-center">{error}</div>
+        <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+          <p className="text-xs text-red-500 mb-2">{errorMessage}</p>
+          <button
+            onClick={() => fetchPcrData(true)}
+            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+          >
+            <RefreshCw size={12} />
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

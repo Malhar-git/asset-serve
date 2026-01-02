@@ -1,47 +1,136 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"; // Required for the dropdown state
+"use client";
 
 import { useState } from "react";
 import Image from "next/image";
 import { Button } from "../UI-Components/button";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import { setAuthToken } from '../lib/axios-interceptor';
 
-export default function LoginPage() {
-  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);//State for maintaining dropdown state in hero card what'new
-  const [formData, setFormData] = useState({ firstName: "", email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+// API configuration - use environment variable or fallback to localhost
+const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:8080/api/auth";
 
-  const [isLogin, setIsLogin] = useState(true);
+// User-friendly error messages for authentication
+const AUTH_ERROR_MESSAGES = {
+  INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
+  USER_EXISTS: "An account with this email already exists.",
+  NETWORK_ERROR: "Unable to connect to the server. Please check your internet connection.",
+  SERVER_ERROR: "Something went wrong. Please try again later.",
+  WEAK_PASSWORD: "Password is too weak. Please use at least 8 characters.",
+  INVALID_EMAIL: "Please enter a valid email address.",
+  DEFAULT: "Authentication failed. Please try again.",
+} as const;
+
+/**
+ * Extracts a user-friendly error message from an authentication error
+ */
+function getAuthErrorMessage(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return AUTH_ERROR_MESSAGES.DEFAULT;
+  }
+
+  const axiosError = error as AxiosError<string | { message?: string }>;
+
+  if (!axiosError.response) {
+    return AUTH_ERROR_MESSAGES.NETWORK_ERROR;
+  }
+
+  const status = axiosError.response.status;
+  const data = axiosError.response.data;
+
+  // Check for specific error messages from backend
+  if (typeof data === "string") {
+    if (data.toLowerCase().includes("already exists") || data.toLowerCase().includes("already registered")) {
+      return AUTH_ERROR_MESSAGES.USER_EXISTS;
+    }
+    if (data.toLowerCase().includes("invalid") || data.toLowerCase().includes("incorrect")) {
+      return AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS;
+    }
+    // Return the backend message if it's short and meaningful
+    if (data.length < 150) {
+      return data;
+    }
+  }
+
+  switch (status) {
+    case 400:
+      return AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS;
+    case 401:
+      return AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS;
+    case 409:
+      return AUTH_ERROR_MESSAGES.USER_EXISTS;
+    case 500:
+    case 502:
+    case 503:
+      return AUTH_ERROR_MESSAGES.SERVER_ERROR;
+    default:
+      return AUTH_ERROR_MESSAGES.DEFAULT;
+  }
+}
+
+export default function LoginPage() {
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+  const [formData, setFormData] = useState({ firstName: "", email: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoginMode, setIsLoginMode] = useState(true);
   const [successMessage, setSuccessMessage] = useState("");
 
   const router = useRouter();
 
-  //Handle Input Changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
-    setError("");
-  }
+    setErrorMessage("");
+  };
 
-  // [NEW] Function to toggle modes and reset form errors
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setError("");
-    setFormData({ firstName: "", email: "", password: "" }); // Optional: clear inputs on toggle
-  }
+  // Toggle between login and registration modes
+  const toggleAuthMode = () => {
+    setIsLoginMode(!isLoginMode);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setFormData({ firstName: "", email: "", password: "" });
+  };
 
-  // Handle Form Submission
+  // Validate form inputs
+  const validateForm = (): string | null => {
+    if (!formData.email.trim()) {
+      return "Please enter your email address.";
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return AUTH_ERROR_MESSAGES.INVALID_EMAIL;
+    }
+    if (!formData.password.trim()) {
+      return "Please enter your password.";
+    }
+    if (!isLoginMode) {
+      if (!formData.firstName.trim()) {
+        return "Please enter your name.";
+      }
+      if (formData.password.length < 6) {
+        return "Password must be at least 6 characters long.";
+      }
+    }
+    return null;
+  };
+
+  // Handle form submission
   const handleSubmit = async () => {
-    setLoading(true);
-    setError("");
-    setSuccessMessage(""); // Clear previous messages
+    // Validate form before submission
+    const validationError = validateForm();
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      if (isLogin) {
-        // --- LOGIN LOGIC ---
-        const response = await axios.post("http://localhost:8080/api/auth/login", {
+      if (isLoginMode) {
+        // Login flow
+        const response = await axios.post(`${AUTH_API_URL}/login`, {
           email: formData.email,
           password: formData.password,
         });
@@ -57,35 +146,30 @@ export default function LoginPage() {
         try {
           localStorage.setItem("userProfile", JSON.stringify(profile));
         } catch (storageError) {
+          // Non-critical: continue even if profile can't be saved
           console.warn("Unable to persist user profile", storageError);
         }
 
         router.push("/dashboard");
-
       } else {
-        // --- REGISTER LOGIC ---
-        // 1. Call Register Endpoint
-        await axios.post("http://localhost:8080/api/auth/register", {
-          firstName: formData.firstName, // Matches your Java Request
+        // Registration flow
+        await axios.post(`${AUTH_API_URL}/register`, {
+          firstName: formData.firstName,
           email: formData.email,
           password: formData.password,
         });
 
-        // 2. Handle Success (Backend returns string "User registered successfully")
-        setSuccessMessage("Registration successful! Please log in.");
-        setIsLogin(true); // Switch back to login form automatically
+        setSuccessMessage("Account created successfully! Please log in.");
+        setIsLoginMode(true);
+        setFormData({ ...formData, password: "" });
       }
-
-    } catch (err: any) {
-      console.error("Auth Failed", err);
-      // Handle specific error messages from backend
-      // Note: Your register backend returns 400 Bad Request if user exists
-      const msg = err.response?.data || "Authentication failed. Please try again.";
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } catch (err) {
+      const errorMsg = getAuthErrorMessage(err);
+      setErrorMessage(errorMsg);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="login__page grid grid-cols-1 md:grid-cols-[35%_65%] h-screen bg-indigo-50">
@@ -97,35 +181,42 @@ export default function LoginPage() {
 
           <div className="text-center">
             <h1 className="text-4xl font-semibold text-gray-900">
-              {isLogin ? "Welcome Back" : "Create Account"}
+              {isLoginMode ? "Welcome Back" : "Create Account"}
             </h1>
             <p className="mt-2 text-base text-gray-500">Let&apos;s sign you in securely</p>
           </div>
 
+          {/* Success Message Display */}
+          {successMessage && (
+            <div className="p-3 text-sm text-green-600 bg-green-50 rounded-md border border-green-200 text-center">
+              {successMessage}
+            </div>
+          )}
+
           {/* Error Message Display */}
-          {error && (
+          {errorMessage && (
             <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md border border-red-200 text-center">
-              {error}
+              {errorMessage}
             </div>
           )}
 
           <div className="login__form--inputs space-y-4">
 
-            {/* [NEW] Name Input - Only visible during Registration */}
-            {!isLogin && (
+            {/* Name Input - Only visible during Registration */}
+            {!isLoginMode && (
               <div className="relative__input-name relative animate-in fade-in slide-in-from-bottom-2">
                 <input
                   type="text"
                   id="firstName"
                   value={formData.firstName}
-                  onChange={handleChange}
-                  disabled={loading}
+                  onChange={handleInputChange}
+                  disabled={isLoading}
                   placeholder="Enter Your Name"
                   className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
                 />
                 <label
-                  htmlFor="name"
-                  className="absolute left-3 top-[-8px] px-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-indigo-600"
+                  htmlFor="firstName"
+                  className="absolute left-3 -top-2 px-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:-top-2 peer-focus:text-xs peer-focus:text-indigo-600"
                 >
                   Full Name
                 </label>
@@ -135,21 +226,21 @@ export default function LoginPage() {
             {/* Email Input Group */}
             <div className="relative__input-email relative">
               <input
-                type="text"
+                type="email"
                 id="email"
                 value={formData.email}
-                onChange={handleChange}
-                disabled={loading}
+                onChange={handleInputChange}
+                disabled={isLoading}
                 placeholder="Enter Your Email Address"
                 className="peer block w-full rounded-md border border-gray-500 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
               />
               <label
                 htmlFor="email"
-                className="absolute left-3 top-[-8px] bg-indigo-50 px-1 text-xs text-gray-600 transition-all
+                className="absolute left-3 -top-2 bg-indigo-50 px-1 text-xs text-gray-600 transition-all
                   peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm
-                  peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-indigo-600"
+                  peer-focus:-top-2 peer-focus:text-xs peer-focus:text-indigo-600"
               >
-                Enter your Email Address
+                Email Address
               </label>
             </div>
 
@@ -159,18 +250,18 @@ export default function LoginPage() {
                 type="password"
                 id="password"
                 placeholder="Enter Your Password"
-                onChange={handleChange}
-                disabled={loading}
+                onChange={handleInputChange}
+                disabled={isLoading}
                 value={formData.password}
                 className="peer block w-full rounded-md border border-gray-500 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
               />
               <label
                 htmlFor="password"
-                className="absolute left-3 top-[-8px] bg-indigo-50 px-1 text-xs text-gray-600 transition-all
+                className="absolute left-3 -top-2 bg-indigo-50 px-1 text-xs text-gray-600 transition-all
                   peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm
-                  peer-focus:top-[-8px] peer-focus:text-xs peer-focus:text-indigo-600"
+                  peer-focus:-top-2 peer-focus:text-xs peer-focus:text-indigo-600"
               >
-                {isLogin ? "Enter your Password" : "Create a Password"}
+                {isLoginMode ? "Password" : "Create a Password"}
               </label>
             </div>
           </div>
@@ -178,15 +269,15 @@ export default function LoginPage() {
           {/* Buttons Container */}
           <div className="login__form--actions flex flex-col space-y-4">
             {/* Primary Button */}
-            <Button onClick={handleSubmit}  className="w-full py-3 justify-center items-center">
-              {loading
+            <Button onClick={handleSubmit} disabled={isLoading} className="w-full py-3 justify-center items-center">
+              {isLoading
                 ? "Processing..."
-                : (isLogin ? "Log in with Email" : "Create Account")
+                : (isLoginMode ? "Log in with Email" : "Create Account")
               }
             </Button>
 
             {/* Google Button */}
-            <button className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <button disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -209,11 +300,11 @@ export default function LoginPage() {
             </button>
 
             <div className="text-center text-sm text-gray-600 mt-4">
-              {isLogin ? (
+              {isLoginMode ? (
                 <>
                   Don&apos;t have an account?{" "}
                   <button
-                    onClick={toggleMode}
+                    onClick={toggleAuthMode}
                     className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
                   >
                     Sign up
@@ -223,7 +314,7 @@ export default function LoginPage() {
                 <>
                   Already have an account?{" "}
                   <button
-                    onClick={toggleMode}
+                    onClick={toggleAuthMode}
                     className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
                   >
                     Log in

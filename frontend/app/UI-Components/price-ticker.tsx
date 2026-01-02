@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import api from "../lib/axios-interceptor";
+import api, { getErrorMessage } from "../lib/axios-interceptor";
 
 interface IndexData {
   ltp: number;
@@ -21,43 +21,41 @@ type TrendIndicator = 'up' | 'down' | 'neutral';
 
 const PriceTicker: React.FC = () => {
   const [indicesData, setIndicesData] = useState<IndicesFullData>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(true);
 
-  const INDICES_FULL_API = '/market/indices/full';
+  const INDICES_API_ENDPOINT = '/market/indices/full';
 
   // Fetch full indices data with OHLC and change information
-  const fetchIndicesFullData = async () => {
+  const fetchIndicesData = async () => {
     try {
-      setError(null);
+      setErrorMessage(null);
 
-      const response = await api.get(INDICES_FULL_API);
+      const response = await api.get(INDICES_API_ENDPOINT);
 
       if (response.status !== 200) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch Indices Data`);
+        throw new Error(`Unable to fetch market data`);
       }
 
       const data: IndicesFullData = response.data;
 
       setIndicesData(data);
-      setLoading(false);
+      setIsLoading(false);
       setIsConnected(true);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.error('Error fetching indices:', err);
-      setError(err.message || 'Failed to fetch indices data');
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setErrorMessage(message);
       setIsConnected(false);
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   // Initial fetch and auto-refresh every 5 seconds
   useEffect(() => {
-    fetchIndicesFullData();
-    const interval = setInterval(fetchIndicesFullData, 5000);
-    return () => clearInterval(interval);
+    fetchIndicesData();
+    const intervalId = setInterval(fetchIndicesData, 5000);
+    return () => clearInterval(intervalId);
   }, []);
 
 
@@ -200,17 +198,34 @@ const PriceTicker: React.FC = () => {
 
   return (
     <div className="w-full">
-      {loading && <span className="text-xs text-gray-500">Loading...</span>}
-      {error && <span className="text-xs text-red-600">{error}</span>}
-      {!loading && !error && isConnected && (
+      {isLoading && (
+        <div className="flex items-center justify-center p-4">
+          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="ml-2 text-xs text-gray-500">Loading market data...</span>
+        </div>
+      )}
+      {errorMessage && !isLoading && (
+        <div className="p-3 text-center">
+          <span className="text-xs text-red-600">{errorMessage}</span>
+          <button
+            onClick={fetchIndicesData}
+            className="ml-2 text-xs text-indigo-600 hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {!isLoading && !errorMessage && isConnected && (
         <div className="overflow-x-auto">
           <ScrollingTicker />
         </div>
       )}
-      {!isConnected && (
-        <span className="text-xs text-red-600">
-          Connection lost. Retrying...
-        </span>
+      {!isConnected && !isLoading && (
+        <div className="p-3 text-center">
+          <span className="text-xs text-amber-600">
+            Connection lost. Reconnecting...
+          </span>
+        </div>
       )}
     </div>
   );

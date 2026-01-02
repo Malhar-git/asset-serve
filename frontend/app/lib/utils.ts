@@ -12,7 +12,7 @@ export const getInitials = (name: string, email: string) => {
     if (parts.length >= 2) return `${parts[0][0]} ${parts[1][0]}`.toUpperCase();
     return name.slice(0, 2).toUpperCase();
   }
-  return email.slice(0, 2).toUpperCase;
+  return email.slice(0, 2).toUpperCase();
 };
 
 // Dynamic Salutation

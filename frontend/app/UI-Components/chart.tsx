@@ -1,12 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import { LineSeries, createChart, ColorType, AreaSeries } from "lightweight-charts";
-import { processChartData } from "../lib/chartUtils";
-import api from "../lib/axios-interceptor";
+import { createChart, ColorType, AreaSeries, Time } from "lightweight-charts";
+import { processChartData } from "../lib/chart-utils";
+import api, { getErrorMessage } from "../lib/axios-interceptor";
+import { AlertCircle, RefreshCw } from "lucide-react";
+
+interface ChartDataPoint {
+  time: number;
+  value: number;
+}
 
 interface ChartProps {
-  data: { time: number; value: number }[];
+  data: ChartDataPoint[];
   colors?: {
     backgroundColor?: string;
     lineColor?: string;
@@ -130,7 +135,7 @@ export const ChartComponent: React.FC<ChartProps> = (props) => {
     });
 
     const formattedData = data.map(item => ({
-      time: Math.floor(item.time) as any,
+      time: Math.floor(item.time) as Time,
       value: item.value,
     }));
 
@@ -153,11 +158,15 @@ interface ChartInput {
   symbolName?: string;
 }
 
+type ChartInterval = "FIVE_MINUTE" | "ONE_HOUR" | "ONE_DAY";
+type ChartPeriod = "1Y" | "3Y";
+
 export default function Chart({ symbolToken, symbolName }: ChartInput) {
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [interval, setInterval] = useState<"FIVE_MINUTE" | "ONE_HOUR" | "ONE_DAY">("ONE_HOUR");
-  const [period, setPeriod] = useState<"1Y" | "3Y">("1Y");
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<ChartInterval>("ONE_HOUR");
+  const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>("1Y");
 
   // Default values for NIFTY 50
   const DEFAULT_TOKEN = "99926000";
@@ -173,7 +182,7 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
     const toDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} 15:30`;
 
     const fromDate = new Date(now);
-    if (period === "1Y") {
+    if (selectedPeriod === "1Y") {
       fromDate.setFullYear(fromDate.getFullYear() - 1);
     } else {
       fromDate.setFullYear(fromDate.getFullYear() - 3);
@@ -183,48 +192,50 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
     return { fromDate: fromDateStr, toDate };
   };
 
+  const fetchChartData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const { fromDate, toDate } = getDateRange();
+
+      const response = await api.get("/priceHistory", {
+        params: {
+          exchange: "NSE",
+          symboltoken: activeToken,
+          interval: selectedInterval,
+          fromDate: fromDate,
+          toDate: toDate,
+        },
+      });
+
+      const formattedData = processChartData(response.data);
+      setChartData(formattedData);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
+      setChartData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // ✅ No early return - always fetch data using activeToken
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        const { fromDate, toDate } = getDateRange();
+    fetchChartData();
+  }, [selectedInterval, selectedPeriod, activeToken]);
 
-        const response = await api.get("/priceHistory", {
-          params: {
-            exchange: "NSE",
-            symboltoken: activeToken, // Uses default token if none provided
-            interval: interval,
-            fromDate: fromDate,
-            toDate: toDate,
-          },
-        });
-
-        const formattedData = processChartData(response.data);
-        setChartData(formattedData);
-      } catch (error) {
-        console.error("Failed to load chart", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHistory();
-  }, [interval, period, activeToken]); // Dependency on activeToken
-
-  const intervalLabels = {
+  const intervalLabels: Record<ChartInterval, string> = {
     FIVE_MINUTE: "5 MIN",
     ONE_HOUR: "1H",
     ONE_DAY: "1D",
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">{activeName}</h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{intervalLabels[interval]} Chart</span>
+            <span className="text-xs text-gray-500">{intervalLabels[selectedInterval]} Chart</span>
           </div>
         </div>
         <div className="flex items-center justify-center h-56">
@@ -232,6 +243,27 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
             <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-sm text-gray-400">Loading chart data...</div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">{activeName}</h3>
+        </div>
+        <div className="flex flex-col items-center justify-center h-56 gap-3">
+          <AlertCircle size={32} className="text-red-400" />
+          <p className="text-sm text-red-600 text-center px-4">{error}</p>
+          <button
+            onClick={fetchChartData}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            <RefreshCw size={14} />
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -254,8 +286,8 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
             {(["FIVE_MINUTE", "ONE_HOUR", "ONE_DAY"] as const).map((int) => (
               <button
                 key={int}
-                onClick={() => setInterval(int)}
-                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${interval === int
+                onClick={() => setSelectedInterval(int)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${selectedInterval === int
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
                   }`}
@@ -270,8 +302,8 @@ export default function Chart({ symbolToken, symbolName }: ChartInput) {
             {(["1Y", "3Y"] as const).map((p) => (
               <button
                 key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${period === p
+                onClick={() => setSelectedPeriod(p)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${selectedPeriod === p
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
                   }`}

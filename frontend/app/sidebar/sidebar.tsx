@@ -6,8 +6,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ authReady }: SidebarProps) {
-  const navItems = ["DashBoard", "WatchList", "Market Movement"];
-
   return (
     <div className="sidebar__content">
       <div className="sidebar__price-ticker flex justify-center mb-6">
@@ -17,13 +15,3 @@ export default function Sidebar({ authReady }: SidebarProps) {
     </div>
   );
 }
-
-/*
-<nav className="sidebar__navigation p-4 ">
-        {navItems.map((item) => (
-          <Button key={item} variant="opaque" className="w-full">
-            {item}
-          </Button>
-        ))}
-      </nav>
-*/

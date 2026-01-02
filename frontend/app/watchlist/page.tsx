@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
-import api from "../lib/axios-interceptor";
-import Header from "../components/header";
-import { Plus, Star, Trash2, TrendingDown, TrendingUp, X } from "lucide-react";
+import api, { getErrorMessage } from "../lib/axios-interceptor";
+import Header from "../UI-Components/header";
+import { Plus, Star, Trash2, TrendingDown, TrendingUp, X, AlertCircle } from "lucide-react";
 
 interface WatchListItem {
   id: number;
@@ -21,13 +20,20 @@ interface SearchResult {
   name: string;
 }
 
+interface AddStockModalData {
+  symbolToken: string;
+  symbolName: string;
+  targetPrice: number;
+  notes: string;
+}
+
 interface AddStockModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (data: any) => void;
+  onAdd: (data: AddStockModalData) => void;
 }
 
-export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
+export function AddStockModal({ isOpen, onClose, onAdd }: AddStockModalProps) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -35,11 +41,13 @@ export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
   const [targetPrice, setTargetPrice] = useState('');
   const [notes, setNotes] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
+    setSearchError(null);
 
     if (query.length < 2) {
       setSearchResults([]);
@@ -50,8 +58,9 @@ export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
       setIsSearching(true);
       const response = await api.get(`/scriplist/search?q=${query}`);
       setSearchResults(response.data || []);
-    } catch (error) {
-      console.error('Search Failed:', error);
+    } catch {
+      setSearchError("Unable to search stocks. Please try again.");
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -64,8 +73,12 @@ export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
   };
 
   const handleSubmit = () => {
-    if (!selectedStock || !targetPrice) {
-      alert('Please select a stock and enter target price');
+    if (!selectedStock) {
+      setSearchError("Please select a stock from the search results.");
+      return;
+    }
+    if (!targetPrice || parseFloat(targetPrice) <= 0) {
+      setSearchError("Please enter a valid target price.");
       return;
     }
 
@@ -82,6 +95,7 @@ export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
     setTargetPrice('');
     setNotes('');
     setSearchResults([]);
+    setSearchError(null);
   };
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -92,6 +106,14 @@ export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
             <X size={20} />
           </button>
         </div>
+
+        {/* Error Message */}
+        {searchError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} className="text-red-600 shrink-0" />
+            <span className="text-sm text-red-600">{searchError}</span>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Search Stock */}
@@ -195,8 +217,10 @@ export function AddStockModel({ isOpen, onClose, onAdd }: AddStockModalProps) {
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [userDetails, setUserDetails] = useState({ name: "", email: "" });
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     // Load user profile
@@ -210,7 +234,7 @@ export default function Watchlist() {
         });
       }
     } catch {
-      // ignore
+      // Profile loading is non-critical, continue without it
     }
 
     fetchWatchlist();
@@ -224,36 +248,37 @@ export default function Watchlist() {
     try {
       const response = await api.get('/watchlist');
       setWatchlist(response.data || []);
-    } catch (error: any) {
-      console.error('Failed to fetch watchlist:', error);
-      const errorMsg = error.response?.data?.message || error.response?.data || error.message;
-      console.error('Error details:', error.response?.status, errorMsg);
+      setError(null);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddStock = async (data: any) => {
+  const handleAddStock = async (data: AddStockModalData) => {
     try {
+      setActionError(null);
       const response = await api.post('/watchlist', data);
       setWatchlist([...watchlist, response.data]);
       setIsModalOpen(false);
-    } catch (error: any) {
-      console.error('Failed to add stock:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to add stock to watchlist';
-      alert(errorMsg);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setActionError(errorMessage);
     }
   };
 
   const handleRemoveStock = async (symbolToken: string) => {
-    if (!window.confirm('Remove this stock from watchlist?')) return;
+    if (!window.confirm('Are you sure you want to remove this stock from your watchlist?')) return;
 
     try {
+      setActionError(null);
       await api.delete(`/watchlist/${symbolToken}`);
       setWatchlist(watchlist.filter(item => item.symbolToken !== symbolToken));
-    } catch (error) {
-      console.error('Failed to remove stock:', error);
-      alert('Failed to remove stock from watchlist');
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setActionError(errorMessage);
     }
   };
 
@@ -309,6 +334,34 @@ export default function Watchlist() {
               </button>
             </div>
           </div>
+
+          {/* Action Error Message */}
+          {actionError && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+              <AlertCircle size={18} className="text-red-600 shrink-0" />
+              <span className="text-sm text-red-600">{actionError}</span>
+              <button
+                onClick={() => setActionError(null)}
+                className="ml-auto text-red-400 hover:text-red-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+              <AlertCircle size={24} className="mx-auto text-red-600 mb-2" />
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={fetchWatchlist}
+                className="mt-2 px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
 
           {/* Watchlist Table */}
           {watchlist.length === 0 ? (
@@ -408,7 +461,7 @@ export default function Watchlist() {
           )}
 
           {/* Add Stock Modal */}
-          <AddStockModel
+          <AddStockModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onAdd={handleAddStock}

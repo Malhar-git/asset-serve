@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import api from "../lib/axios-interceptor";
+import api, { getErrorMessage } from "../lib/axios-interceptor";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 interface PortfolioItem {
   tradingSymbol: string;
@@ -15,57 +16,52 @@ interface PortfolioItem {
 
 export default function PortfolioTables({ authReady }: { authReady: boolean }) {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const fetchPortfolio = async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage(null);
+      const response = await api.get("/dashboard/portfolio");
+      setPortfolio(response.data);
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!authReady) {
       return;
     }
 
-    let isActive = true;
-
-    const fetchPortfolio = async () => {
-      try {
-        setLoading(true);
-        const response = await api.get("/dashboard/portfolio");
-        if (!isActive) {
-          return;
-        }
-        setPortfolio(response.data);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to fetch portfolio:", err);
-        if (!isActive) {
-          return;
-        }
-        setError("Failed to load portfolio data");
-      } finally {
-        if (!isActive) {
-          return;
-        }
-        setLoading(false);
-      }
-    };
-
     fetchPortfolio();
-    return () => {
-      isActive = false;
-    };
   }, [authReady]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center p-8 bg-neutral-primary-soft shadow-xs rounded-base border border-default">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-3 text-gray-500">Loading portfolio...</span>
       </div>
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
-      <div className="p-8 text-center text-red-500 bg-neutral-primary-soft shadow-xs rounded-base border border-default">
-        {error}
+      <div className="p-8 text-center bg-neutral-primary-soft shadow-xs rounded-base border border-default">
+        <AlertCircle size={32} className="mx-auto text-red-400 mb-3" />
+        <p className="text-red-600 mb-3">{errorMessage}</p>
+        <button
+          onClick={fetchPortfolio}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-sm"
+        >
+          <RefreshCw size={16} />
+          Try Again
+        </button>
       </div>
     );
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Search } from "lucide-react";
+import { Search, AlertCircle } from "lucide-react";
 import api from "../lib/axios-interceptor";
 
 interface Scrip {
@@ -10,49 +10,55 @@ interface Scrip {
   token: string;
 }
 
-interface SearchInputProps{
-  onScripSelect: (token : string, name: string)=> void;
+interface SearchInputProps {
+  onScripSelect: (token: string, name: string) => void;
 }
 
-export default function SearchInput({onScripSelect}:SearchInputProps){
-  const [isFocused, setIsFocused] = useState(false);
+export default function SearchInput({ onScripSelect }: SearchInputProps) {
   const [searchValue, setSearchValue] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [showDropDown, setShowDropdown] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [suggestion, setSuggestion] = useState<Scrip[]>([]);
+  const [suggestions, setSuggestions] = useState<Scrip[]>([]);
 
-  // Fetch suggestions from API - wrapped in useCallback to prevent recreation
+  // Fetch suggestions from API
   const fetchSuggestions = useCallback(async (searchText: string) => {
     try {
-      const res = await api.get(`/scriplist/search?q=${searchText}`);
-      setSuggestion(res.data || []);
+      setIsSearching(true);
+      setSearchError(null);
+      const response = await api.get(`/scriplist/search?q=${searchText}`);
+      setSuggestions(response.data || []);
       setShowDropdown(true);
-    } catch (error) {
-      console.error("Search failed", error);
-      setSuggestion([]);
+    } catch {
+      setSearchError("Unable to search. Please try again.");
+      setSuggestions([]);
       setShowDropdown(false);
+    } finally {
+      setIsSearching(false);
     }
   }, []);
 
   // Debounce logic: wait for user to stop typing
   useEffect(() => {
-    const delaybounceFn = setTimeout(() => {
+    const debounceTimer = setTimeout(() => {
       if (searchValue.length > 1) {
         fetchSuggestions(searchValue);
       } else {
-        setSuggestion([]);
+        setSuggestions([]);
         setShowDropdown(false);
+        setSearchError(null);
       }
     }, 300);
-    return () => clearTimeout(delaybounceFn);
+    return () => clearTimeout(debounceTimer);
   }, [searchValue, fetchSuggestions]);
 
   const handleSelect = (scrip: Scrip) => {
     setSearchValue(scrip.name || "");
     setShowDropdown(false);
-    setSuggestion([]);
-    //Passing the token
+    setSuggestions([]);
+    setSearchError(null);
     onScripSelect(scrip.token, scrip.name);
   };
 
@@ -66,7 +72,6 @@ export default function SearchInput({onScripSelect}:SearchInputProps){
         !inputRef.current.contains(event.target as Node)
       ) {
         setShowDropdown(false);
-        setIsFocused(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -75,9 +80,7 @@ export default function SearchInput({onScripSelect}:SearchInputProps){
 
   const handleSearch = () => {
     if (searchValue.trim()) {
-      console.log("Searching for:", searchValue);
       setShowDropdown(false);
-      setIsFocused(false);
     }
   };
 
@@ -86,14 +89,12 @@ export default function SearchInput({onScripSelect}:SearchInputProps){
       handleSearch();
     } else if (e.key === "Escape") {
       setShowDropdown(false);
-      setIsFocused(false);
       inputRef.current?.blur();
     }
   };
 
   const handleInputClick = () => {
-    setIsFocused(true);
-    if (suggestion.length > 0) {
+    if (suggestions.length > 0) {
       setShowDropdown(true);
     }
   };
@@ -110,20 +111,36 @@ export default function SearchInput({onScripSelect}:SearchInputProps){
           }}
           onFocus={handleInputClick}
           onKeyDown={handleKeyDown}
-          placeholder="Search..."
+          placeholder="Search stocks..."
           className="flex-1 px-3 py-2 text-sm outline-none bg-transparent"
         />
-        <button
-          onClick={handleSearch}
-          className="p-2 hover:bg-gray-100 transition-colors flex-shrink-0"
-          aria-label="Search"
-        >
-          <Search size={18} strokeWidth={2} className="text-gray-500" />
-        </button>
+        {isSearching ? (
+          <div className="p-2">
+            <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <button
+            onClick={handleSearch}
+            className="p-2 hover:bg-gray-100 transition-colors shrink-0"
+            aria-label="Search"
+          >
+            <Search size={18} strokeWidth={2} className="text-gray-500" />
+          </button>
+        )}
       </div>
-      {showDropDown && suggestion.length > 0 && (
+
+      {/* Error message */}
+      {searchError && (
+        <div className="absolute z-10 w-full bg-red-50 border border-red-200 rounded-b-lg shadow-lg p-2 flex items-center gap-2">
+          <AlertCircle size={14} className="text-red-500" />
+          <span className="text-xs text-red-600">{searchError}</span>
+        </div>
+      )}
+
+      {/* Suggestions dropdown */}
+      {showDropdown && suggestions.length > 0 && !searchError && (
         <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg max-h-60 overflow-y-auto">
-          {suggestion.map((scrip, idx) => (
+          {suggestions.map((scrip, idx) => (
             <div
               key={scrip.id || idx}
               className="px-4 py-2 cursor-pointer hover:bg-gray-100 text-sm"
@@ -132,6 +149,13 @@ export default function SearchInput({onScripSelect}:SearchInputProps){
               {scrip.name ?? String(scrip.id ?? "")}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* No results message */}
+      {showDropdown && suggestions.length === 0 && searchValue.length > 1 && !isSearching && !searchError && (
+        <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg p-3 text-center">
+          <span className="text-sm text-gray-500">No stocks found for &ldquo;{searchValue}&rdquo;</span>
         </div>
       )}
     </div>
