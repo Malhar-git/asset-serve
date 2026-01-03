@@ -488,8 +488,6 @@ public class MarketDataService {
             // Log response for debugging
             System.out.println("=== PCR/OI API Response ===");
             System.out.println("Status: " + response.getStatusCode());
-            System.out.println("Full Response: " + responseBody);
-            System.out.println("===========================");
 
             JsonNode root = objectMapper.readTree(responseBody);
             List<OIResponse> oiResponse = new ArrayList<>();

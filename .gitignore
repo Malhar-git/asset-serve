@@ -8,7 +8,17 @@ postgres-data/
 #  Spring Boot (Backend)
 # =============== #
 # Compiled Java output
-backend/monetary/target/
+backend/**/target/
+backend/**/build/
+backend/**/out/
+
+# Generated sources and cache
+**/.gradle/
+**/.mvn/
+
+# Local configuration
+backend/**/application-local.properties
+
 
 # Log files
 *.log
@@ -20,8 +30,18 @@ backend/monetary/target/
 frontend/build/
 frontend/.next/
 
-# Dependencies (this folder is huge!)
+# Package manager artefacts
+node_modules/
 frontend/node_modules/
+
+# Build caches
+.turbo/
+frontend/.turbo/
+frontend/.swc/
+
+# Coverage reports
+coverage/
+frontend/coverage/
 
 # Debug logs
 frontend/npm-debug.log*
@@ -31,6 +51,9 @@ frontend/yarn-error.log*
 # Env files with secrets
 .env
 .env.local
+.env.*.local
+frontend/.env*
+backend/**/.env*
 
 # =============== #
 #  IDE Files
@@ -41,3 +64,12 @@ frontend/yarn-error.log*
 
 # VS Code (in case you use it)
 .vscode/
+
+# macOS / Windows artefacts
+.DS_Store
+Thumbs.db
+
+# Misc
+error.log
+*.log
+*.pid
