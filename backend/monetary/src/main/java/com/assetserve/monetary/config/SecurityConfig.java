@@ -70,19 +70,14 @@ public class SecurityConfig {
     }
 
     @Configuration
-    public class CorsConfig {
-        @Bean
-        public WebMvcConfigurer corsConfigurer() {
-            return new WebMvcConfigurer() {
-                @Override
-                public void addCorsMappings(@NotNull CorsRegistry registry) {
-                    registry.addMapping("/api/**")
-                            .allowedOrigins("http://localhost:3000")
-                            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                            .allowedHeaders("*")
-                            .allowCredentials(true);
-                }
-            };
+    public static class CorsConfig implements WebMvcConfigurer {
+        @Override
+        public void addCorsMappings(CorsRegistry registry) {
+            registry.addMapping("/api/**")
+                    .allowedOriginPatterns("http://localhost:*")  // or specific origin
+                    .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                    .allowedHeaders("*")
+                    .allowCredentials(true);
         }
     }
 }

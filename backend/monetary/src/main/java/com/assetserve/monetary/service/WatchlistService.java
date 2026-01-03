@@ -8,11 +8,9 @@ import com.assetserve.monetary.model.UserWatchlist;
 import com.assetserve.monetary.repository.UserRepository;
 import com.assetserve.monetary.repository.UserWatchListRepository;
 import jakarta.transaction.Transactional;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -24,7 +22,7 @@ import java.util.stream.Collectors;
 public class WatchlistService {
     private final UserWatchListRepository userWatchListRepository;
     private final UserRepository userRepository;
-    private final RestTemplate restTemplate;
+    private final MarketDataService marketDataService;
 
     //Get current authenticated user
     private User getCurrentUser() {
@@ -44,6 +42,7 @@ public class WatchlistService {
         Double currentLtp = fetchCurrentPrice(watchlistRequest.getSymbolToken());
 
         UserWatchlist watchList = UserWatchlist.builder()
+                .user(user)
                 .symbolToken(watchlistRequest.getSymbolToken())
                 .symbolName(watchlistRequest.getSymbolName())
                 .currentLtp(currentLtp)
@@ -102,8 +101,7 @@ public class WatchlistService {
     }
 
     /**
-     * Fetch current price using the same logic as your search script
-     * This should match your existing priceHistory API implementation
+     * Fetch current price using the MarketDataService directly
      */
     private Double fetchCurrentPrice(String symbolToken) {
         try {
@@ -113,20 +111,19 @@ public class WatchlistService {
             LocalDate fromDate = now.minusDays(1);
             String fromDateStr = fromDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + " 09:15";
 
-            // Use your existing priceHistory endpoint
-            String url = String.format(
-                    "http://localhost:8080/api/priceHistory?exchange=NSE&symboltoken=%s&interval=ONE_MINUTE&fromDate=%s&toDate=%s",
-                    symbolToken, fromDateStr, toDate
+            // Call the MarketDataService directly instead of making HTTP request
+            var priceData = marketDataService.getPriceData(
+                    "NSE",
+                    symbolToken,
+                    "ONE_MINUTE",
+                    fromDateStr,
+                    toDate
             );
 
-            // Call your API and extract the latest price
-            // Adjust based on your actual API response structure
-            var response = restTemplate.getForObject(url, PriceHistoryResponse.class);
-
-            if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+            if (priceData != null && !priceData.isEmpty()) {
                 // Get the most recent price (last item in the list)
-                var latestData = response.getData().get(response.getData().size() - 1);
-                return latestData.getClose(); // or getOpen(), depending on your preference
+                var latestData = priceData.get(priceData.size() - 1);
+                return latestData.getClose();
             }
 
             throw new RuntimeException("No price data available");
@@ -145,20 +142,6 @@ public class WatchlistService {
                 .targetPrice(watchlist.getProjectedBuyPrice())
                 .notes(watchlist.getNotes())
                 .build();
-    }
-
-    // Inner class for API response (adjust based on your actual response structure)
-    @Data
-    private static class PriceHistoryResponse {
-        private List<PriceData> data;
-    }
-
-    @Data
-    private static class PriceData {
-        private Double open;
-        private Double high;
-        private Double low;
-        private Double close;
     }
 }
 

@@ -1,5 +1,6 @@
 package com.assetserve.monetary.controller;
 
+import com.assetserve.monetary.dto.IndexQuote;
 import com.assetserve.monetary.service.MarketDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -37,9 +38,9 @@ public class IndicesPriceController {
 
     // Full data endpoint with OHLC
     @GetMapping("/indices/full")
-    public ResponseEntity<Map<String, Map<String, Object>>> getIndicesFullData() {
+    public ResponseEntity<Map<String, IndexQuote>> getIndicesFullData() {
         try {
-            Map<String, Map<String, Object>> data = marketDataService.getIndicesFullData();
+            Map<String, IndexQuote> data = marketDataService.getIndicesFullData();
 
             if (data.isEmpty()) {
                 return ResponseEntity.noContent().build();

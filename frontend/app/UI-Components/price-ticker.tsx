@@ -11,6 +11,7 @@ interface IndexData {
   close: number;
   change: number;
   percentChange: number;
+  trend?: "UP" | "DOWN" | "NEUTRAL";
 }
 
 interface IndicesFullData {
@@ -25,7 +26,7 @@ const PriceTicker: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(true);
 
-  const INDICES_API_ENDPOINT = '/market/indices/full';
+  const INDICES_API_ENDPOINT = 'market/indices/full';
 
   // Fetch full indices data with OHLC and change information
   const fetchIndicesData = async () => {
@@ -106,7 +107,17 @@ const PriceTicker: React.FC = () => {
     return (effectiveChange / baseline) * 100;
   };
 
-  const getTrend = (change: number): TrendIndicator => {
+  const getTrend = (indexData: IndexData, change: number): TrendIndicator => {
+    if (indexData.trend) {
+      if (indexData.trend === "UP") {
+        return "up";
+      }
+      if (indexData.trend === "DOWN") {
+        return "down";
+      }
+      return "neutral";
+    }
+
     if (change > 0.01) return 'up';
     if (change < -0.01) return 'down';
     return 'neutral';
@@ -143,7 +154,7 @@ const PriceTicker: React.FC = () => {
         {entries.map(([name, data], index) => {
           const change = getEffectiveChange(data);
           const percentChange = getEffectivePercentChange(data, change);
-          const trend = getTrend(change);
+          const trend = getTrend(data, change);
           const trendColor =
             trend === 'up'
               ? 'text-green-600'

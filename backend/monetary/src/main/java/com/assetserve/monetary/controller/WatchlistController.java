@@ -12,7 +12,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/watchlist")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // Adjust for your frontend URL
 public class WatchlistController {
 
     private final WatchlistService watchlistService;

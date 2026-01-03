@@ -303,7 +303,7 @@ export default function Watchlist() {
   }
 
   return (
-    <div className="watchlist__page h-screen grid grid-rows-[auto_1fr] border-2 border-indigo-800">
+    <div className="watchlist__page h-screen grid grid-rows-[auto_1fr] bg-indigo-50 border-2 border-indigo-800">
       <div className="header border-2 border-indigo-100">
         <Header
           userName={userDetails.name}

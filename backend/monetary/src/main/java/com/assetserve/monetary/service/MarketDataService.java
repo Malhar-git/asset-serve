@@ -1,6 +1,8 @@
 package com.assetserve.monetary.service;
 
 import com.assetserve.monetary.dto.HoldingResponse;
+import com.assetserve.monetary.dto.IndexQuote;
+import com.assetserve.monetary.dto.MarketTrend;
 import com.assetserve.monetary.dto.OIResponse;
 import com.assetserve.monetary.dto.ScripPriceData;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,6 +21,42 @@ import java.util.*;
 public class MarketDataService {
     // Base URL for AngelOne SmartAPI
     private static final String BASE_URL = "https://apiconnect.angelone.in";
+
+    private static final Map<String, String> INDEX_TOKENS;
+
+    static {
+        Map<String, String> tokens = new LinkedHashMap<>();
+        tokens.put("NIFTY 50", "99926000");
+        tokens.put("NIFTY BANK", "99926009");
+        INDEX_TOKENS = Collections.unmodifiableMap(tokens);
+    }
+
+    private HttpEntity<Map<String, Object>> buildIndexQuoteRequest(String mode) {
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("mode", mode);
+
+        Map<String, List<String>> exchangeTokens = new HashMap<>();
+        exchangeTokens.put("NSE", new ArrayList<>(INDEX_TOKENS.values()));
+        requestBody.put("exchangeTokens", exchangeTokens);
+
+        HttpHeaders headers = createHeaders(true);
+        return new HttpEntity<>(requestBody, headers);
+    }
+
+    private double readNumericValue(JsonNode node, String fieldName) {
+        JsonNode valueNode = node.get(fieldName);
+        if (valueNode == null || !valueNode.isNumber()) {
+            return Double.NaN;
+        }
+        return valueNode.asDouble();
+    }
+
+    private double sanitizeNumeric(double value) {
+        if (Double.isFinite(value)) {
+            return value;
+        }
+        return 0.0d;
+    }
 
     // AngelOne API credentials injected from application.properties
     @Value("${angelone.api.key}")
@@ -330,134 +368,24 @@ public class MarketDataService {
     }
 
     // Fetch live LTP for major indices using quote API (only LTP)
-    public Map<String, Double> getIndicesLTP(){
-        if(jwtToken == null) {
-            System.err.println("Angel One service not initialized! Cannot get indicesLTP data");
-            return new HashMap<>();
-        }
-
-        try {
-            String url = BASE_URL + "/rest/secure/angelbroking/market/v1/quote/";
-
-            // Index symbol tokens for NSE
-            // These are the official tokens for indices
-            Map<String, String> indexTokens = new LinkedHashMap<>();
-            indexTokens.put("NIFTY 50", "99926000");
-            indexTokens.put("NIFTY BANK", "99926009");
-
-            // Prepare request body - fetch all indices in one API call
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("mode", "LTP");  // Use LTP mode for just the price
-
-            // Create list of all index tokens
-            List<String> tokenList = new ArrayList<>(indexTokens.values());
-            Map<String, List<String>> exchangeTokens = new HashMap<>();
-            exchangeTokens.put("NSE", tokenList);
-            requestBody.put("exchangeTokens", exchangeTokens);
-
-            // Create HTTP request with headers
-            HttpHeaders headers = createHeaders(true);
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-
-            // Make API call
-            System.out.println("Fetching indices data from AngelOne...");
-            System.out.println("Request URL: " + url);
-            System.out.println("Request Body: " + requestBody);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    request,
-                    String.class
-            );
-
-            // Log response status
-            System.out.println("Response Status: " + response.getStatusCode());
-
-            // Check if response is HTML (error)
-            String responseBody = response.getBody();
-            if (responseBody != null && responseBody.trim().startsWith("<html")) {
-                System.err.println("Angel One API returned HTML instead of JSON.");
-                System.err.println("Response preview: " + responseBody.substring(0, Math.min(500, responseBody.length())));
-                return new HashMap<>();
-            }
-
-            // Parse JSON response
-            JsonNode root = objectMapper.readTree(responseBody);
-            System.out.println("Parsed Response: " + root.toString());
-
-            Map<String, Double> indicesMap = new LinkedHashMap<>();
-
-            // Check if API call was successful
-            if (root.has("status") && root.get("status").asBoolean()) {
-                JsonNode data = root.get("data");
-
-                if (data != null && data.has("fetched")) {
-                    JsonNode fetchedArray = data.get("fetched");
-
-                    // Create reverse map: token -> name
-                    Map<String, String> tokenToName = new HashMap<>();
-                    for (Map.Entry<String, String> entry : indexTokens.entrySet()) {
-                        tokenToName.put(entry.getValue(), entry.getKey());
-                    }
-
-                    // Parse each index data
-                    for (JsonNode item : fetchedArray) {
-                        String symbolToken = item.path("symbolToken").asText();
-                        double ltp = item.path("ltp").asDouble(0.0);
-
-                        // Map token back to index name
-                        String indexName = tokenToName.get(symbolToken);
-                        if (indexName != null && ltp > 0) {
-                            indicesMap.put(indexName, ltp);
-                            System.out.println(indexName + " -> ₹" + ltp);
-                        }
-                    }
-
-                    System.out.println("Successfully fetched " + indicesMap.size() + " indices");
-                }
-            } else {
-                System.err.println("Angel One API returned error status");
-                System.err.println("Error message: " + root.path("message").asText());
-            }
-
-            return indicesMap;
-
-        } catch (Exception e) {
-            System.err.println("Error fetching indicesLTP: " + e.getMessage());
-            e.printStackTrace();
-            return new HashMap<>();
-        }
+    public Map<String, Double> getIndicesLTP() {
+        Map<String, IndexQuote> fullData = getIndicesFullData();
+        Map<String, Double> indicesMap = new LinkedHashMap<>();
+        fullData.forEach((name, quote) -> indicesMap.put(name, quote.getLtp()));
+        return indicesMap;
     }
 
     // Fetch live Last Traded Price for all major indices (Nifty, Bank Nifty, etc.)(OHLC)
-    public Map<String, Map<String, Object>> getIndicesFullData(){
-        if(jwtToken == null) {
+    public Map<String, IndexQuote> getIndicesFullData() {
+        if (jwtToken == null) {
             System.err.println("Angel One service not initialized!");
-            return new HashMap<>();
+            return new LinkedHashMap<>();
         }
 
         try {
             String url = BASE_URL + "/rest/secure/angelbroking/market/v1/quote/";
+            HttpEntity<Map<String, Object>> request = buildIndexQuoteRequest("FULL");
 
-            // Index tokens
-            Map<String, String> indexTokens = new LinkedHashMap<>();
-            indexTokens.put("NIFTY 50", "99926000");
-            indexTokens.put("NIFTY BANK", "99926009");
-
-            // Prepare request with FULL mode
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("mode", "FULL");  // FULL mode for complete data
-
-            List<String> tokenList = new ArrayList<>(indexTokens.values());
-            Map<String, List<String>> exchangeTokens = new HashMap<>();
-            exchangeTokens.put("NSE", tokenList);
-            requestBody.put("exchangeTokens", exchangeTokens);
-
-            HttpHeaders headers = createHeaders(true);
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-
-            System.out.println("Fetching full indices data...");
             ResponseEntity<String> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
@@ -465,46 +393,71 @@ public class MarketDataService {
                     String.class
             );
 
-            // Check for HTML response
             String responseBody = response.getBody();
-            if (responseBody != null && responseBody.trim().startsWith("<html")) {
-                System.err.println("API returned HTML error");
-                return new HashMap<>();
+            if (responseBody == null) {
+                return new LinkedHashMap<>();
+            }
+
+            if (responseBody.trim().startsWith("<html")) {
+                System.err.println("API returned HTML error while fetching indices data");
+                return new LinkedHashMap<>();
             }
 
             JsonNode root = objectMapper.readTree(responseBody);
-            Map<String, Map<String, Object>> indicesData = new LinkedHashMap<>();
+            if (!root.path("status").asBoolean(false)) {
+                System.err.println("API error: " + root.path("message").asText("Unknown error"));
+                return new LinkedHashMap<>();
+            }
 
-            if (root.has("status") && root.get("status").asBoolean()) {
-                JsonNode fetchedArray = root.get("data").get("fetched");
+            JsonNode fetchedArray = root.path("data").path("fetched");
+            if (!fetchedArray.isArray()) {
+                return new LinkedHashMap<>();
+            }
 
-                // Create reverse map: token -> name
-                Map<String, String> tokenToName = new HashMap<>();
-                for (Map.Entry<String, String> entry : indexTokens.entrySet()) {
-                    tokenToName.put(entry.getValue(), entry.getKey());
+            Map<String, String> tokenToName = new HashMap<>();
+            INDEX_TOKENS.forEach((name, token) -> tokenToName.put(token, name));
+
+            Map<String, IndexQuote> indicesData = new LinkedHashMap<>();
+
+            for (JsonNode item : fetchedArray) {
+                String symbolToken = item.path("symbolToken").asText();
+                String indexName = tokenToName.get(symbolToken);
+                if (indexName == null) {
+                    continue;
                 }
 
-                // Parse each index
-                for (JsonNode item : fetchedArray) {
-                    String symbolToken = item.path("symbolToken").asText();
-                    String indexName = tokenToName.get(symbolToken);
+                double ltp = readNumericValue(item, "ltp");
+                double open = readNumericValue(item, "open");
+                double high = readNumericValue(item, "high");
+                double low = readNumericValue(item, "low");
+                double close = readNumericValue(item, "close");
+                double change = readNumericValue(item, "change");
+                double percentChange = readNumericValue(item, "perChange");
 
-                    if (indexName != null) {
-                        Map<String, Object> data = new HashMap<>();
-                        data.put("ltp", item.path("ltp").asDouble());
-                        data.put("open", item.path("open").asDouble());
-                        data.put("high", item.path("high").asDouble());
-                        data.put("low", item.path("low").asDouble());
-                        data.put("close", item.path("close").asDouble());
-                        data.put("change", item.path("change").asDouble());
-                        data.put("percentChange", item.path("perChange").asDouble());
-
-                        indicesData.put(indexName, data);
-                        System.out.println(indexName + " -> LTP: " + data.get("ltp") + ", Change: " + data.get("percentChange") + "%");
-                    }
+                if (!Double.isFinite(change) && Double.isFinite(ltp) && Double.isFinite(close)) {
+                    change = ltp - close;
                 }
-            } else {
-                System.err.println("API error: " + root.path("message").asText());
+
+                if (!Double.isFinite(percentChange) && Double.isFinite(change) && Double.isFinite(close) && Math.abs(close) > 0.0001d) {
+                    percentChange = (change / close) * 100d;
+                }
+
+                double sanitizedChange = sanitizeNumeric(change);
+                double sanitizedPercentChange = sanitizeNumeric(percentChange);
+
+                IndexQuote quote = IndexQuote.builder()
+                        .name(indexName)
+                        .ltp(sanitizeNumeric(ltp))
+                        .open(sanitizeNumeric(open))
+                        .high(sanitizeNumeric(high))
+                        .low(sanitizeNumeric(low))
+                        .close(sanitizeNumeric(close))
+                        .change(sanitizedChange)
+                        .percentChange(sanitizedPercentChange)
+                        .trend(MarketTrend.fromChange(sanitizedChange))
+                        .build();
+
+                indicesData.put(indexName, quote);
             }
 
             return indicesData;
@@ -512,7 +465,7 @@ public class MarketDataService {
         } catch (Exception e) {
             System.err.println("Error fetching full data: " + e.getMessage());
             e.printStackTrace();
-            return new HashMap<>();
+            return new LinkedHashMap<>();
         }
     }
 
