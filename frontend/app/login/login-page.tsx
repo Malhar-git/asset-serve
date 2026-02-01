@@ -212,11 +212,13 @@ export default function LoginPage() {
                   onChange={handleInputChange}
                   disabled={isLoading}
                   placeholder="Enter Your Name"
-                  className="peer block w-full rounded-md border border-gray-300 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
+                  className="peer block w-full rounded-md border border-gray-500 px-3 py-3 text-sm focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-transparent"
                 />
                 <label
                   htmlFor="firstName"
-                  className="absolute left-3 -top-2 px-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:-top-2 peer-focus:text-xs peer-focus:text-indigo-600"
+                  className="absolute left-3 -top-2 bg-indigo-50 px-1 text-xs text-gray-600 transition-all
+                  peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm
+                  peer-focus:-top-2 peer-focus:text-xs peer-focus:text-indigo-600"
                 >
                   Full Name
                 </label>
@@ -341,7 +343,7 @@ export default function LoginPage() {
         <div className="absolute inset-0" />
 
         {/* "What's New" Dropdown (Top Right) */}
-        <div className="absolute top-6 right-6 z-10">
+        <div className="absolute top-2 right-6 z-10">
           <Button
             onClick={() => setIsWhatsNewOpen(!isWhatsNewOpen)}
           >
